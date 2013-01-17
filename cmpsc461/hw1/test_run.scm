@@ -66,11 +66,11 @@
 
 ;Value: 1206814703
 
-(myrand 0 10 2 0 1337)
+(myRand 0 10 2 0 1337)
 
 ;Value: 1337
 
-(myrand 1 10 2 0 1337) 
+(myRand 1 10 2 0 1337) 
 
 ;Value: 4
 

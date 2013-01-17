@@ -61,32 +61,35 @@
   (+ v (* (/ (expt x k) (fact k)) (expt -1 (* (floor (/ k 2)))))))
 
 
-
 ;;; myRand(n, m, a, c, seed) is a Linear Congurential Generator which uses 
 ;;;   the algorithm:   r_(n+1) = (a * r_n + c) mod m 
 ;;; where r_0 is the seed; for all i, 0 <= r_i < m 
 ;;;
 ;;; so, continue computing the number while r_i < m
 (define (myRand n m a c seed)
-  (randHelper n m a c (* a (+ seed c)) 1))
+  (if (zero? n)
+      seed
+      (randHelper n m a c (modulo (+ (* a seed) c) m) 1)))
 
-;;; at the ith iteration, compute r_(i+1) if i <= n
+;;; at the ith iteration, compute r_(i+1) if i < n
 ;;; prev = r_i
 (define (randHelper n m a c prev i)
-  (if (> i n)    		;; performed enough iterations
+  (if (>= i n)    		;; performed enough iterations
       prev			;; return r_i
-      (randHelper n m a c (* a (+ prev c)) (+ i 1))))
+      (randHelper n m a c (modulo (+ (* a prev) c) m) (+ i 1))))
 
 
-;;; quality? tests if the given values a, c, m will produce quality 
-;;;   random numbers according to the algorithm for an LCG
-;;; avg = ct = 0
-;;; r = new random number
-;;; avg = avg
-;(define (quality? a c m)   
-;  )
+;;; quality? tests if the given values a, c, m will  
+;;; produce quality random numbers using a LCG
+(define (quality? a c m)
+  (let ((avg (qualityHelper 1 m a c 0 0)))
+       (and (>= avg 40) (<= avg 60))))
 
-
+;;; qualityHelper produces the sum of all generated numbers 
+(define (qualityHelper i m a c seed sum)
+  (if (eq? i 100)  ;; done generating the 100 numbers
+      (+ sum ( / (myRand 100 m a c seed) m))
+      (qualityHelper (+ i 1) m a c seed (+ sum (/ (myRand (+ i 1) m a c seed) m) ))))
 
 ;;; factorial function defined on the natural numbers
 (define (fact n)
