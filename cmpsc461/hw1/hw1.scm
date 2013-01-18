@@ -10,14 +10,14 @@
 ;;; approx-pi(n) approximate pi by limit of sum( f(k/n) * (k/n - (k-1)/n) )
 ;;;   as n --> infinity, for all integers n >= 1
 ;;; if (n < 1) return 0
-;;; if (n >= 1) approx-pi(n) = sum(sf(k, n)) for k in [1, n]
+;;; else       approx-pi(n) = sum(sf(k, n)) for k in [1, n]
 (define (approx-pi n) 
   (if (< n 1) 0
       (summation 1 n)))
 
 ;;; summation(k, n) is the summation from k to n evaluated at sf
 ;;; sf is the procedure/function defined below
-;;; if (n == k) return sf(n, n)
+;;; if (n == k) return sf(n, n), reached the end of the summation
 ;;; else        summation(k, n) = sf(k, n) + summation(k + 1, n)
 (define (summation k n)
   (if (= k n)
@@ -25,6 +25,7 @@
       (+ (sf k n) (summation (+ k 1) n))))
 
 ;;; f(x) = 4 * sqrt(1 - x^2), used for pi approximation
+;;; if !(-1 <= x <= 1) then f(x) is imaginary, just return false
 (define (f x)
   (if (and (<= x 1) (<= -1)) (* 4 (sqrt (- 1 (* x x)))) #f))
 
@@ -33,8 +34,9 @@
 
 ;;; sinTerms(x, e) approximates sin(x) using the Taylor series expansion
 ;;; sin(x) ≈ x - x^3/3! + x^5/5! + x^7/7! + ...
-;;; if (val - sin(x) < e) return num 
-;;; if (val - sin(x) >= e) sinTerms(x, e) = 1 + countTerms(x, e, 1, a, r) 
+;;; let diff be the absolute value of (current approximation at x) - (sin(x))
+;;; if (diff < e) return num
+;;; else          sinTerms(x, e) = 1 + countTerms(x, e, 1, a, r) 
 (define (sinTerms x e) 
   (let ((a (approx-sin 0 x 1))		;; a = approx(0, x, 1) = (x^1/x! = x)
 	(r (sin x))			       ;; r = sin(x), the "actual" value
@@ -60,14 +62,12 @@
 (define (approx-sin v x k)
   (+ v (* (/ (expt x k) (fact k)) (expt -1 (* (floor (/ k 2)))))))
 
-
-;;; myRand(n, m, a, c, seed) is a Linear Congurential Generator which uses 
-;;;   the algorithm:   r_(n+1) = (a * r_n + c) mod m 
+;;; myRand(n, m, a, c, seed) is a Linear Congurential Generator which
+;;;   uses the algorithm: r_(n+1) = (a * r_n + c) mod m 
 ;;; where r_0 is the seed; for all i, 0 <= r_i < m 
-;;;
-;;; so, continue computing the number while r_i < m
+;;; iterate n times to get the pseudo-random number r_n
 (define (myRand n m a c seed)
-  (if (zero? n)
+  (if (< n 0)
       seed
       (randHelper n m a c (modulo (+ (* a seed) c) m) 1)))
 
@@ -78,14 +78,13 @@
       prev			;; return r_i
       (randHelper n m a c (modulo (+ (* a prev) c) m) (+ i 1))))
 
-
 ;;; quality? tests if the given values a, c, m will  
 ;;; produce quality random numbers using a LCG
 (define (quality? a c m)
   (let ((avg (qualityHelper 1 m a c 0 0)))
        (and (>= avg 40) (<= avg 60))))
 
-;;; qualityHelper produces the sum of all generated numbers 
+;;; qualityHelper produces the sum of 100 psuedo-random numbers using a LCG
 (define (qualityHelper i m a c seed sum)
   (if (eq? i 100)  ;; done generating the 100 numbers
       (+ sum ( / (myRand 100 m a c seed) m))
