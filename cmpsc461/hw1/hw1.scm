@@ -1,3 +1,8 @@
+;;; Brian Golden
+;;; CMPSC 461
+;;; Homework 1
+;;; 1/19/13
+
 ;;; binom(n, k) is the binomial coefficient "n choose k"
 ;;; if (k == 0 && n >= 0) return 1
 ;;; if (n == 0 && k > 0)  return 0
