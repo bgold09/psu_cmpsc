@@ -26,7 +26,6 @@
 	((< n a) (removeFirst (cdr xs) a (+ n 1)))
 	(#t xs)))
 
-
 ;;; cartProduct(list1, list2) is the Cartesian Product of list1 and list2, 
 ;;;   i.e. list1 x list2
 (define (cartProduct list1 list2)
@@ -73,88 +72,22 @@
       '()
       (cons x (duplicate (- n 1) x))))
 
-
-
-
-
-
-
-;;; length of a list
-(define (length xs)
-  (if (null? xs)
-      0
-      (+ 1 (length (cdr xs)))))
-
-;;; test if x is a member of a list
-(define (member? x xs)
-  (if (null? xs)
-      #f
-      (or (eq? x (car xs))
-	  (member? x (cdr xs)))))
-
-;;; sum the elements of list of numbers
-(define (sumlist xs)
-  (if (null? xs)
-      0  ;; empty
-      (+ (car xs) (sumlist (cdr xs)))))  ;; non-empty
-  
-;;; construst a new list which is the concatenation of two lists
-(define (append xs ys)
-  (if (null? xs)
-      ys
-      (cons (car xs) (append (cdr xs) ys))))
-
-;;; naive reverse
-(define (reverse xs)
-  (if (null? xs)
-      '()
-      (append (reverse (cdr xs)) (list (car xs)))))
-
-
-;;; tail recursive reverse
-(define (trev xs ys)
-  (if (null? xs)
-      ys
-      (trev (cdr xs) (cons (car xs) ys))))
-
-(define (treverse xs)
-  (trev xs '()))
-
-
-;;; generate a list of numbers (n, n-1, ..., 0)
-(define (upto n)
-  (if (zero? n)
-      (list 0)
-      (cons n (upto (- n 1)))))
-
-
-;;; get the last element of a list
-;;; assume xs is non-null
-(define (last xs)
-  (if (= (length xs) 1)  ;; (if (null? (cdr xs))
-      (car xs)
-      (last (cdr xs))))
-
-
-;;; return a list with all occurrences of x removed
-(define (remove x xs)
+;;; interleaves the first half of xs and the reverse of the second half of xs
+;;; (e.g. list = '(1 8 4 9 5 2 3 7 6) --> output = '(1 6 8 7 4 3 9 2 5))
+(define (mangle xs)
   (if (null? xs) 
       xs
-      (if (eq? x (car xs))
-	  (remove x (cdr xs))
-	  (cons (car xs) (remove x (cdr xs))))))
+      (let* ((len (length xs))
+	     (m (ceiling (/ len 2)))
+	     (first (removeLast xs (- m 1)))
+	     (rest (reverse (removeFirst xs m 0))))
+	(interleave first rest))))
 
-;;; alternative definition 
-(define (remove2 x xs)
-  (if (null? xs) 
-      xs
-      (let ((rest (remove2 x (cdr xs))))
-	(if (eq? x (car xs))
-	    rest
-	    (cons (car xs) rest)))))
-
-;;; Sorting
-(define (ordered? xs)
-  (or (<= (length xs) 1)
-      (and (<= (car xs) (cadr xs))
-	   (ordered? (cdr xs)))))
+;;; combine xs and ys by first taking the head of xs and then head of ys 
+;;;   on each iteration
+;;; (e.g. xs = '(1 2 3), ys = '(4 5 6) --> output = '(1 4 2 5 3 6)
+(define (interleave xs ys)
+  (cond ((and (null? xs) (null? ys)) '())
+	((null? xs) ys)
+	((null? ys) xs)
+	(#t (append (list (car xs) (car ys)) (interleave (cdr xs) (cdr ys))))))
