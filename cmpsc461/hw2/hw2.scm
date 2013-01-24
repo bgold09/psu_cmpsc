@@ -79,9 +79,11 @@
       xs
       (let* ((len (length xs))
 	     (m (ceiling (/ len 2)))
-	     (first (removeLast xs (- m 1)))
-	     (rest (reverse (removeFirst xs m 0))))
-	(interleave first rest))))
+	     (first (removeLast xs (- m 1)))		;; first half of xs
+	     (rest (reverse (removeFirst xs m 0))))	;; reverse of second half of xs
+	(if (odd? len)
+	    (interleave first rest)   			   ;; interleave the two parts
+	    (interleave first (remove-last-elem rest)))))) ;; remove last element of rest, then interleave
 
 ;;; combine xs and ys by first taking the head of xs and then head of ys 
 ;;;   on each iteration
@@ -91,3 +93,8 @@
 	((null? xs) ys)
 	((null? ys) xs)
 	(#t (append (list (car xs) (car ys)) (interleave (cdr xs) (cdr ys))))))
+
+(define (remove-last-elem xs)
+  (if (null? xs) 
+      xs
+      (reverse (cdr (reverse xs)))))
