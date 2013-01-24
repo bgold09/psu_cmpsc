@@ -7,16 +7,17 @@
 ;;;   the a'th (inclusive) and b'th (exclusive) elements of xs
 ;;; assume a >= 0, b >=0, a and b are within the bounds of xs
 (define (slice xs a b)
-  (cond ((or (null? xs) (< b a)) '())
-	((< a b) (cons (car xs) (slice (cdr xs) (+ a 1) b)))
-	(#t '())))  ;; a == b 
-;;; must hancle values greater than the length of the list
+  (let ((len (length xs)))
+    (cond ((or (null? xs) (<= b a)) '())
+	  ((> a len) xs)  ;; a > len, return eveything
+	  ((> b len) (removeFirst xs a 0))  ;; b > len, return everything before a
+	  (#t (removeFirst (removeLast xs (- b a 1)) a 0)))))
 
-
-
-
-
-
+;;; remove the last n elements of xs
+(define (removeLast xs n)
+  (if (null? xs) 
+      xs
+      (reverse (removeFirst (reverse xs) n 0))))
 
 ;;; remove the first elements of xs, from n to a
 ;;; should be called as (removeFirst xs a 0) to remove the elements before a
