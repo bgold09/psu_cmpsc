@@ -44,7 +44,18 @@
 ;;;   such that (f x) returns the element n elements to the right of x 
 ;;;   in the original list.
 ;;; If x is not in the original list, the function should return x
+;(define (caesar-cipher xs n)
+;  (lambda (n) ))
 
+
+;;; rotate treats xs a circular list, such that the first element of the list 
+;;;   will come immediately after the last element. Retrieving the nth element
+;;;   of the list takes this into account, e.g. if the list is (a b c d), then 
+;;;   the 0th element is a, 1st is b, 4th is a, 5th is b, etc. 
+(define (rotate xs n)
+  (cond ((null? xs) xs)
+	((= n 0) (car xs))
+	(#t (list-ref xs (modulo n (length xs))))))
 
 ;;; rot-n takes a list a and an integer and returns the list of elements of a
 ;;;   replaced with the element dictated by the caesar-cipher defined for the 
@@ -84,3 +95,9 @@
   (cons n (delay (integers-starting-from (+ n 1)))))
 
 (define Nats (integers-starting-from 0))
+
+(define (member? x xs)
+  (if (null? xs)
+      #f
+      (or (eq? x (car xs))
+	  (member? x (cdr xs)))))
