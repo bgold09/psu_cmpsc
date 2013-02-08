@@ -75,13 +75,10 @@ int open_file(char *filename)
 {
 	char mode = 'r';
 	fd = fopen(filename, &mode);
-	if (fd == NULL)
-	{
+	if (fd == NULL)	{
 		printf("Invalid input file specified: %s\n", filename);
 		return -1;
-	}
-	else
-	{
+	} else {
 		return 0;
 	}
 }
@@ -99,13 +96,11 @@ void *worker_thread(void *arg)
 	set_last_event(myinfo->arrival_time);
 	scheduled_time = scheduleme(myinfo->arrival_time, myinfo->id, time_remaining, myinfo->priority);
 	
-	while (time_remaining > 0)
-	{
+	while (time_remaining > 0) {
 		set_last_event(scheduled_time);
 		//printf("T%d\n", myinfo->id);
 		printf("%3.0f - %3.0f: T%d\n", scheduled_time, scheduled_time + 1.0, myinfo->id);
-		while(get_global_time() < scheduled_time + 1.0)
-		{
+		while(get_global_time() < scheduled_time + 1.0) {
 			sched_yield();
 		}
 		time_remaining -= 1.0;
@@ -128,8 +123,7 @@ int _pre_init(int sched_type)
 int main(int argc, char *argv[])
 {
 	int inactivity_timeout = 50;
-	if (argc < 3)
-	{
+	if (argc < 3) {
 		printf ("Not enough parameters specified.  Usage: a.out <scheduler_type> <input_file>\n");
 		printf ("  Scheduler type: 0 - First Come, First Served (Non-preemptive)\n");
 		printf ("  Scheduler type: 1 - Shortest Remaining Time First (Preemptive)\n");
@@ -162,29 +156,22 @@ int main(int argc, char *argv[])
 		
 	ti = malloc(sizeof(_thread_info_t));
 	next_arrival_time = read_next_arrival(&(ti->arrival_time), &(ti->id), &(ti->required_time), &(ti->priority));
-	while ((get_global_time() - _last_event_time) < inactivity_timeout)
-	{
+	while ((get_global_time() - _last_event_time) < inactivity_timeout) {
 		advance_global_time(next_arrival_time);		// Advance timer to next whole unit, or event
-		if (get_global_time() == next_arrival_time)
-		{
+		if (get_global_time() == next_arrival_time) {
 			pthread_create(&pt, NULL, worker_thread, ti);
 	
-			while (_last_event_time < ti->arrival_time)
-			{
+			while (_last_event_time < ti->arrival_time) {
 				sched_yield();
 			}
 			ti = malloc(sizeof(_thread_info_t));
 			next_arrival_time = read_next_arrival(&(ti->arrival_time), &(ti->id), &(ti->required_time), &(ti->priority));
-			if (next_arrival_time < 0)
-			{
+			if (next_arrival_time < 0) {
 				free(ti);
 			}
-		}
-		else
-		{
+		} else {
 			int loop_counter = 0;
-			while ((_last_event_time < get_global_time()) && (loop_counter < 100))
-			{
+			while ((_last_event_time < get_global_time()) && (loop_counter < 100)) {
 				loop_counter++;
 				sched_yield();
 			}
