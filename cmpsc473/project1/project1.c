@@ -54,7 +54,9 @@ void advance_global_time(float next_arrival)
 			_global_time = next_ms;
 	pthread_mutex_unlock(&_time_lock);
 }
-
+/**
+ * read_next_arrival - parses a line from the file
+ */
 float read_next_arrival(float *arrival_time, int *id, int *required_time, int *priority)
 {
 	*arrival_time = -1.0;
