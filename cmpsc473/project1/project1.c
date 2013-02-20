@@ -14,6 +14,7 @@ extern void init_scheduler(int);
 extern int scheduleme(float, int, int, int);
 
 FILE *fd;
+static char *prog;
 
 struct _thread_info
 {
@@ -54,6 +55,7 @@ void advance_global_time(float next_arrival)
 			_global_time = next_ms;
 	pthread_mutex_unlock(&_time_lock);
 }
+
 /**
  * read_next_arrival - parses a line from the file
  */
@@ -100,7 +102,7 @@ void *worker_thread(void *arg)
 	
 	while (time_remaining > 0) {
 		set_last_event(scheduled_time);
-		//printf("T%d\n", myinfo->id);
+		/* printf("T%d\n", myinfo->id); */
 		printf("%3.0f - %3.0f: T%d\n", scheduled_time, scheduled_time + 1.0, myinfo->id);
 		while(get_global_time() < scheduled_time + 1.0) {
 			sched_yield();
@@ -120,6 +122,8 @@ int _pre_init(int sched_type)
 	
 	_global_time = 0.0;
 	_last_event_time = -1.0;
+
+	return 0;
 }
 
 int main(int argc, char *argv[])
@@ -136,10 +140,12 @@ int main(int argc, char *argv[])
 	
 	if (open_file(argv[2]) < 0)
 		return -1;
+
+	prog = argv[0];
 		
 	_pre_init(atoi(argv[1]));
 	
-	int this_thread_id = 0;	
+	/* int this_thread_id = 0; */
 	
 	_thread_info_t *ti;
 	
@@ -159,7 +165,7 @@ int main(int argc, char *argv[])
 	ti = malloc(sizeof(_thread_info_t));
 	next_arrival_time = read_next_arrival(&(ti->arrival_time), &(ti->id), &(ti->required_time), &(ti->priority));
 	while ((get_global_time() - _last_event_time) < inactivity_timeout) {
-		advance_global_time(next_arrival_time);		// Advance timer to next whole unit, or event
+		advance_global_time(next_arrival_time);		/* Advance timer to next whole unit, or event */
 		if (get_global_time() == next_arrival_time) {
 			pthread_create(&pt, NULL, worker_thread, ti);
 	
