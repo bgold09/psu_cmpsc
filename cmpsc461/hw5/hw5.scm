@@ -17,7 +17,7 @@
 	  ((eq? fcn 'update) (update (car args) (cadr args) stack))
 	  ((eq? fcn 'delete) (filter (lambda (x) (not (equal? (car x) (car args)))) stack))
 	  ((eq? fcn 'create) (append stack (list (cons (car args) (cadr args)))))
-	  (#t 6))))
+	  (#t stack))))
 
 ;;; getbinding returns the binding on the stack with the variable b
 (define (getbinding b stack)
