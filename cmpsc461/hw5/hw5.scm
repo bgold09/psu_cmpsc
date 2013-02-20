@@ -16,7 +16,7 @@
     (cond ((eq? fcn 'access) (cdr (getbinding (car args) stack)))
 	  ((eq? fcn 'update) (update (car args) (cadr args) stack))
 	  ((eq? fcn 'delete) (filter (lambda (x) (not (equal? (car x) (car args)))) stack))
-	  ((eq? fcn 'create) 3)
+	  ((eq? fcn 'create) (append stack (list (cons (car args) (cadr args)))))
 	  (#t 6))))
 
 ;;; getbinding returns the binding on the stack with the variable b
