@@ -42,11 +42,11 @@ struct _thread_queue
 typedef struct _thread_queue pqueue_t;
 
 extern char *prog;
-static pqueue_t *ready;
+pqueue_t *ready;
 static int type;
-static pthread_mutex_t m_queue;
-static pthread_mutex_t m_sched;
-static pthread_mutex_t m_globtime;
+pthread_mutex_t m_queue;
+pthread_mutex_t m_sched;
+pthread_mutex_t m_globtime;
 float globtime;
 
 int init_pqueue(pqueue_t *queue)
@@ -157,10 +157,14 @@ int schedule_fcfs(int tid, int remaining_time)
 	pthread_mutex_lock(&m_sched);
 
 	if (is_empty(curr)) {
+		t = alloc_node(tid, remaining_time, 0);  /* bogus priority */
+		enqueue(curr, t); 
 		ret = ceil(globtime);
 	} else if (remaining_time == 0) {   /* thread is finished with the CPU */
-		dequeue(&ready[0]);  /* remove calling thread from the queue */
-		pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
+		dequeue(curr);  /* remove calling thread from the queue */
+		if (!is_empty(curr)) {  /* signal the head if there are threads still on the queue */
+			pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
+		}
 		ret = globtime;
 	} else {
 		if (!is_member(curr, tid)) {   /* if thread not on the queue */
@@ -276,6 +280,7 @@ void init_scheduler(int sched_type)
 	type = sched_type;
 	pthread_mutex_init(&m_queue, NULL);
 	pthread_mutex_init(&m_sched, NULL);
+	pthread_mutex_init(&m_globtime, NULL);
 
 	switch(sched_type) {
 	case FCFS:
