@@ -123,7 +123,7 @@ node_t *alloc_node(int tid, int remaining_time, float current_time, int priority
 
 	tinfo->id = tid;
 	tinfo->required_time = remaining_time;
-	tinfo->arrival_time = /*globtime*/ current_time;
+	tinfo->arrival_time = globtime /* current_timei*/;
 	/* printf("arrival_time for T%d: %f\n", tid, tinfo->arrival_time);*/
 	tinfo->priority = priority;
 
@@ -295,14 +295,14 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 	if (is_empty(curr)) {
 		t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
 		enqueue(curr, t);
-		ret = /*ceil(globtime)*/ ceil(current_time);
+		ret = ceil(globtime);
 	} else if (remaining_time == 0) {   /* thread is finished with the CPU */
 		t = dequeue(curr);  /* remove calling thread from the queue */
 		dealloc_node(t);
 		if (!is_empty(curr)) {      /* signal the head if there are threads still on the queue */
 			pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
 		}
-		ret = /*globtime*/current_time;
+		ret = globtime;
 	} else {
 		if (!is_member(curr, tid)) {   /* if thread not on the queue */
 			t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
@@ -310,7 +310,7 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 		}
 
 		if (curr->q[curr->head]->tinfo->id == tid) {  /* if this thread at the head */
-			ret = /*globtime*/current_time;
+			ret = globtime;
 		} else {
 			pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
 			if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */

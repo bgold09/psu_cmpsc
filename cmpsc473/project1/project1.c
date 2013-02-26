@@ -14,7 +14,6 @@ extern void init_scheduler(int);
 extern int scheduleme(float, int, int, int);
 
 FILE *fd;
-static char *prog;
 
 struct _thread_info
 {
@@ -26,7 +25,7 @@ struct _thread_info
 typedef struct _thread_info _thread_info_t;
 
 
-float _global_time;
+double _global_time;
 float _last_event_time;
 
 pthread_mutex_t _time_lock;
@@ -56,9 +55,6 @@ void advance_global_time(float next_arrival)
 	pthread_mutex_unlock(&_time_lock);
 }
 
-/**
- * read_next_arrival - parses a line from the file
- */
 float read_next_arrival(float *arrival_time, int *id, int *required_time, int *priority)
 {
 	*arrival_time = -1.0;
@@ -67,11 +63,11 @@ float read_next_arrival(float *arrival_time, int *id, int *required_time, int *p
 	fgets(c, 1, fd);
 	fscanf(fd, "%d", id);
 	fgets(c, 1, fd);
-	fscanf(fd, "%d", required_time);	
+	fscanf(fd, "%d", required_time);
 	fgets(c, 1, fd);
-	fscanf(fd, "%d", priority);	
+	fscanf(fd, "%d", priority);
 	fgets(c, 10, fd);
-	
+
 	return *arrival_time;
 }
 
@@ -79,16 +75,19 @@ int open_file(char *filename)
 {
 	char mode = 'r';
 	fd = fopen(filename, &mode);
-	if (fd == NULL)	{
+	if (fd == NULL)
+	{
 		printf("Invalid input file specified: %s\n", filename);
 		return -1;
-	} else {
+	}
+	else
+	{
 		return 0;
 	}
 }
 
 void close_file()
-{	
+{
 	fclose(fd);
 }
 
@@ -99,12 +98,14 @@ void *worker_thread(void *arg)
 	float scheduled_time;
 	set_last_event(myinfo->arrival_time);
 	scheduled_time = scheduleme(myinfo->arrival_time, myinfo->id, time_remaining, myinfo->priority);
-	
-	while (time_remaining > 0) {
+
+	while (time_remaining > 0)
+	{
 		set_last_event(scheduled_time);
-		/* printf("T%d\n", myinfo->id); */
+		/*printf("T%d\n", myinfo->id);*/
 		printf("%3.0f - %3.0f: T%d\n", scheduled_time, scheduled_time + 1.0, myinfo->id);
-		while(get_global_time() < scheduled_time + 1.0) {
+		while(get_global_time() < scheduled_time + 1.0)
+		{
 			sched_yield();
 		}
 		time_remaining -= 1.0;
@@ -117,19 +118,21 @@ void *worker_thread(void *arg)
 int _pre_init(int sched_type)
 {
 	pthread_mutex_init(&_time_lock, NULL);
-	pthread_mutex_init(&_last_event_lock, NULL);	
+	pthread_mutex_init(&_last_event_lock, NULL);
 	init_scheduler(sched_type);
-	
+
 	_global_time = 0.0;
 	_last_event_time = -1.0;
-
 	return 0;
 }
 
 int main(int argc, char *argv[])
-{
+{	/* argc = 3; ./out 0 input_1*/
+	/*argv[1] = "0"; schedule type */
+	/* argv[2] = "input_1";  input file */
 	int inactivity_timeout = 50;
-	if (argc < 3) {
+	if (argc < 3)
+	{
 		printf ("Not enough parameters specified.  Usage: a.out <scheduler_type> <input_file>\n");
 		printf ("  Scheduler type: 0 - First Come, First Served (Non-preemptive)\n");
 		printf ("  Scheduler type: 1 - Shortest Remaining Time First (Preemptive)\n");
@@ -137,55 +140,62 @@ int main(int argc, char *argv[])
 		printf ("  Scheduler type: 3 - Multi-Level Feedback Queue w/ Aging (Preemptive)\n");
 		return -1;
 	}
-	
+
 	if (open_file(argv[2]) < 0)
 		return -1;
 
-	prog = argv[0];
-		
 	_pre_init(atoi(argv[1]));
-	
-	/* int this_thread_id = 0; */
-	
+
+	int this_thread_id = 0;
+	(void) this_thread_id;
+
 	_thread_info_t *ti;
-	
+
 	float next_arrival_time;
 	pthread_t pt;
-	
+
 	ti = malloc(sizeof(_thread_info_t));
 	next_arrival_time = read_next_arrival(&(ti->arrival_time), &(ti->id), &(ti->required_time), &(ti->priority));
-	if (next_arrival_time < 0) 
+	if (next_arrival_time < 0)
 		return -1;
 
 	pthread_create(&pt, NULL, worker_thread, ti);
-	
+
 	while (_last_event_time != ti->arrival_time)
 		sched_yield();
-		
+
 	ti = malloc(sizeof(_thread_info_t));
 	next_arrival_time = read_next_arrival(&(ti->arrival_time), &(ti->id), &(ti->required_time), &(ti->priority));
-	while ((get_global_time() - _last_event_time) < inactivity_timeout) {
-		advance_global_time(next_arrival_time);		/* Advance timer to next whole unit, or event */
-		if (get_global_time() == next_arrival_time) {
+	while ((get_global_time() - _last_event_time) < inactivity_timeout)
+	{
+		advance_global_time(next_arrival_time);		/* Advance timer to next whole unit, or event*/
+		if (get_global_time() == next_arrival_time)
+		{
 			pthread_create(&pt, NULL, worker_thread, ti);
-	
-			while (_last_event_time < ti->arrival_time) {
+
+			while (_last_event_time < ti->arrival_time)
+			{
 				sched_yield();
 			}
 			ti = malloc(sizeof(_thread_info_t));
 			next_arrival_time = read_next_arrival(&(ti->arrival_time), &(ti->id), &(ti->required_time), &(ti->priority));
-			if (next_arrival_time < 0) {
+
+			if (next_arrival_time < 0)
+			{
 				free(ti);
 			}
-		} else {
+		}
+		else
+		{
 			int loop_counter = 0;
-			while ((_last_event_time < get_global_time()) && (loop_counter < 100)) {
+			while ((_last_event_time < get_global_time()) && (loop_counter < 10000))
+			{
 				loop_counter++;
 				sched_yield();
 			}
-		}		
+		}
 	}
-	
+
 	close_file();
 	return 0;
 }
