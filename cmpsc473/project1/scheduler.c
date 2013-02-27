@@ -14,7 +14,7 @@
 #define SRTF 1
 #define PBS  2
 #define MLFQ 3
-#define MAX_SIZE 32
+#define MAX_SIZE 16
 #define NUM_PRIO 5
 
 struct _thread_info 
@@ -36,14 +36,31 @@ typedef struct _node node_t;
 
 struct _thread_queue
 {
+	node_t *q[MAX_SIZE];
 	int head;
 	int tail;  /* tail points to element after the last element */
-	node_t *q[MAX_SIZE];
 };
 typedef struct _thread_queue pqueue_t;
 
+struct _node_linked
+{
+	_thread_info_t *tinfo;
+	float current_time;
+	pthread_cond_t cond;
+	struct _node_linked *next;
+};
+typedef struct _node_linked node;
+
+struct _link_queue
+{
+	node *head;
+	node *tail;
+};
+typedef struct _link_queue link_queue;
+
 extern char *prog;
 pqueue_t *ready;
+link_queue *l_ready[NUM_PRIO];
 static int type;
 pthread_mutex_t m_queue;
 pthread_mutex_t m_sched;
@@ -51,6 +68,171 @@ pthread_mutex_t m_globtime;
 pthread_mutex_t m_signal;
 pthread_cond_t cond_time;
 float globtime;
+
+
+link_queue *link_queue_allocate(void) 
+{
+	link_queue *p;
+	
+	p = (link_queue *) malloc(sizeof(*p));
+	p->head = NULL;
+	p->tail = NULL;
+
+	return p;
+}
+
+node *node_alloc(int tid, int remaining_time, float current_time, int priority)
+{
+	node *p;
+	_thread_info_t *tinfo;
+
+	if ((tinfo = (_thread_info_t *) malloc(sizeof(*tinfo))) == NULL) {
+		return NULL;
+	}
+
+	if ((p = (node *) malloc(sizeof(*p))) == NULL) {
+		return NULL;
+	}
+
+	tinfo->id = tid;
+	tinfo->required_time = remaining_time;
+	tinfo->arrival_time = globtime /* current_time */;
+	/* printf("arrival_time for T%d: %f\n", tid, tinfo->arrival_time);*/
+	tinfo->priority = priority;
+
+	p->tinfo = tinfo;
+	p->current_time = current_time;
+	p->next = NULL;
+	pthread_cond_init(&(p)->cond, NULL);
+
+	return p;
+}
+
+void node_dealloc(node *p) 
+{
+	free(p->tinfo);
+	free(p);
+	p = NULL;
+}
+
+
+void l_enqueue(link_queue *queue, node *p)
+{
+	pthread_mutex_lock(&m_queue);
+
+	if (queue->head == NULL) {
+		queue->head = queue->tail = p;
+	} else {
+		queue->tail->next = p;
+		queue->tail = p;
+	}
+
+	pthread_mutex_unlock(&m_queue);
+}
+
+
+node *l_remove(link_queue *queue, int tid)
+{
+	node *p;
+	node *ret;
+
+	pthread_mutex_lock(&m_queue);
+
+	ret = NULL;
+
+	if (queue->head->tinfo->id == tid) {
+		ret = queue->head;
+		queue->head = queue->head->next;
+	} else {
+		for (p = queue->head->next; p->next != NULL; p = p->next) {
+			if (p->next->tinfo->id == tid) {
+				ret = p->next;
+				p->next = p->next->next;
+				break;
+			}
+		}
+	}
+
+	pthread_mutex_unlock(&m_queue);
+
+	return ret;
+}
+
+int l_is_empty(link_queue *queue) 
+{
+	return queue->head == NULL;
+}
+
+int l_are_queues_empty()
+{
+	int i;
+
+	for (i = 0; i < NUM_PRIO; i++) {
+		if (!l_is_empty(l_ready[i])) {
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+int l_is_member(link_queue *queue, int tid)
+{
+	node *p;
+
+	for (p = queue->head; p != NULL; p = p->next) {
+		if (p->tinfo->id == tid) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+node *l_find(link_queue *queue, int tid)
+{
+	node *p;
+
+	for (p = queue->head; p != NULL; p = p->next) {
+		if (p->tinfo->id == tid) {
+			return p;
+		}
+	}
+
+	return NULL;
+}
+
+node *l_find_hp() 
+{
+	node *high;
+	node *p;
+	link_queue *queue;
+	int i;
+
+	for (i = 0; i < NUM_PRIO && l_is_empty(l_ready[i]); i++);
+	queue = l_ready[i];
+
+	high = queue->head;
+
+	for (p = queue->head->next; p != NULL; p = p->next) {
+		if (p->current_time < high->current_time) {
+			high = p;
+		}
+	}
+
+	return high;
+}
+
+void l_signal_hp(int tid)
+{
+	node *t;
+
+	(void) tid;
+	t = l_find_hp();
+	printf("\t\tsignal T%d with prio = %d\n", t->tinfo->id, t->tinfo->priority);
+	pthread_cond_signal(&(t->cond));
+}
+
 
 int init_pqueue(pqueue_t *queue)
 {
@@ -63,6 +245,19 @@ int init_pqueue(pqueue_t *queue)
 int is_empty(pqueue_t *q)
 {
 	return q->head == q->tail;
+}
+
+int are_queues_empty(void)
+{
+	int i;
+
+	for (i = 0; i < NUM_PRIO; i++) {
+		if (is_empty(&ready[i])) {
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 /*  */
@@ -123,7 +318,7 @@ node_t *alloc_node(int tid, int remaining_time, float current_time, int priority
 
 	tinfo->id = tid;
 	tinfo->required_time = remaining_time;
-	tinfo->arrival_time = globtime /* current_timei*/;
+	tinfo->arrival_time = globtime /* current_time */;
 	/* printf("arrival_time for T%d: %f\n", tid, tinfo->arrival_time);*/
 	tinfo->priority = priority;
 
@@ -133,6 +328,7 @@ node_t *alloc_node(int tid, int remaining_time, float current_time, int priority
 
 	return p;
 }
+
 
 int indexof(pqueue_t *queue, int tid)
 {
@@ -217,13 +413,54 @@ node_t *find_srt(pqueue_t *queue, int tid)
 
 node_t *find_hp(int tid)
 {
+	node_t *hp;
+	node_t *curr;
+	pqueue_t *queue;
+	int tail;
+	int head;
+	int i;
+
 	(void) tid;
-	return NULL;
+
+	pthread_mutex_lock(&m_queue);
+
+	hp = NULL;
+
+	for (i = 0; i < NUM_PRIO && is_empty(&ready[i]); i++);
+	queue = &ready[i];
+
+	tail = queue->tail;
+	head = queue->head;
+	
+	if (head == tail) {
+		pthread_mutex_unlock(&m_queue);
+		return NULL;
+	}
+
+	hp = queue->q[head];
+
+	for (i = (head + 1) % MAX_SIZE; i != tail; i = (i + 1) % MAX_SIZE) {
+		curr = queue->q[i];
+
+		if (curr->current_time < hp->current_time) {
+			hp = curr;
+		}
+	}
+
+	pthread_mutex_unlock(&m_queue);
+
+	return hp;
 }
 
 int signal_hp(int tid)
 {
-	(void) tid;
+	node_t *t;
+
+	if ((t = find_hp(tid)) == NULL) {
+		fprintf(stderr, "find_hp failed, call from T%d\n", tid);
+		return 0;
+	}
+	pthread_cond_signal(&(t->cond));
 	return 0;
 }
 
@@ -259,7 +496,7 @@ node_t *remove_by_index(pqueue_t *queue, int index)
 	tail = queue->tail;
 
 	for (i = index; i != tail; i = (i + 1) % MAX_SIZE) { /* shift elements to the right */
-		queue->q[i] = queue->q[(i + 1) % MAX_SIZE];	
+		queue->q[i] = queue->q[(i + 1) % MAX_SIZE];
 	}
 
 	queue->tail = (tail - 1) % MAX_SIZE;
@@ -345,24 +582,37 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);
 
+	/*printf("\tT%d arriving with current_time = %.1f\n", tid, current_time);*/
+
 	pthread_mutex_lock(&m_globtime);
+		/* printf("\tupdate globtime from %.1f to  %.1f\n", globtime, current_time);*/
 		globtime = current_time; 
 	pthread_mutex_unlock(&m_globtime); 
 
+	pthread_cond_signal(&cond_time);
+
 	if (is_empty(curr)) {
 		t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
+		/*printf("\tAdding T%d to the queue\n", tid);*/
 		enqueue(curr, t); 
-		ret = ceil(globtime);
+		ret = ceil(globtime); /* printf("\t\tline %d: T%d assigning ret = %.1f\n", __LINE__, tid, ceil(globtime));*/
 	} else if (remaining_time == 0) {   /* thread is finished with the CPU */
 		t = remove_by_index(curr, indexof(curr, tid));   /* remove calling thread from the queue */
 		dealloc_node(t);
 		if (!is_empty(curr)) {      /* signal thread with srt if there are threads still on the queue */
 			signal_srt(curr, tid);
 		}
-		ret = globtime;
+		ret = globtime;  /* printf("\t\tline %d: T%d assigning ret = %.1f\n", __LINE__, tid, globtime); */
 	} else {
 		if (!is_member(curr, tid)) {   /* if thread not on the queue */
-			t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
+			if (current_time != ceil(current_time)) {
+				/*printf("\t\tT%d not at integral time %.1f, wait...\n", tid, current_time);*/
+				pthread_cond_wait(&cond_time, &m_sched);
+				/*printf("\t\tT%d woke up at time %.1f\n", tid, globtime);*/
+			}
+
+			t = alloc_node(tid, remaining_time, globtime, 0);  /* bogus priority */
+			/* printf("\tAdding T%d to the queue\n", tid); */
 			enqueue(curr, t);
 		} else {
 			t = curr->q[indexof(curr, tid)];
@@ -371,21 +621,36 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 		}
 
 		if (find_srt(curr, tid)->tinfo->id == tid) {  /* if this thread is the one with the shortest remaining time */
-			ret = globtime;
+			ret = globtime;  /* printf("\t\tline %d: assigning ret = %.1f\n", __LINE__, globtime); */
 		} else {
 			pthread_mutex_lock(&m_signal);
 			signal_srt(curr, tid);   /* signal thread with srt */ 
 			pthread_mutex_unlock(&m_signal);
 			if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */
 				pthread_cond_wait(&(curr->q[index]->cond), &m_sched); /* wait until signaled */
-				ret = globtime;
+				ret = globtime; /*  printf("\t\tline %d: assigning ret = %.1f\n", __LINE__, globtime); */
 			}
 		}
 	}
 
 	pthread_mutex_unlock(&m_sched);
 
+/*	if (remaining_time != 0)
+		printf("\tT%d returning with time = %d\n", tid, ret);*/
+
 	return ret;
+}
+
+void Pthread_mutex_lock(pthread_mutex_t *mutex)
+{
+	if(pthread_mutex_lock(mutex) != 0)
+		fprintf(stderr, "error locking m_sched\n");
+}
+
+void Pthread_mutex_unlock(pthread_mutex_t *mutex)
+{
+	if(pthread_mutex_unlock(mutex) != 0)
+		fprintf(stderr, "error unlocking m_sched\n");
 }
 
 /**
@@ -396,55 +661,75 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
  * @param tprio: priority of the thread
  * @return the global current time
  */
-int schedule_pbs(int tid, int remaining_time, int tprio)
+int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 {
-	pqueue_t *curr;
-	node_t *t;
-	int index;
+	link_queue *curr;
+	node *t;
+	int ret;
 
-	curr = &ready[tprio - 1];
+	ret = -1;
+	curr = l_ready[tprio - 1];
 
-	pthread_mutex_lock(&m_sched);
+	Pthread_mutex_lock(&m_sched);
 
-	if (is_empty(curr)) {
-		t = alloc_node(tid, remaining_time, 0, tprio); 
-		enqueue(curr, t); 
-		return ceil(globtime);
+	pthread_mutex_lock(&m_globtime);
+		/* printf("\tupdate globtime from %.1f to  %.1f\n", globtime, current_time);*/
+		globtime = current_time; 
+	pthread_mutex_unlock(&m_globtime); 
+
+	pthread_cond_signal(&cond_time);
+
+	if (l_are_queues_empty()) {
+		t = node_alloc(tid, remaining_time, 0, tprio); 
+		l_enqueue(curr, t); 
+		ret = ceil(globtime);
 	} else if (remaining_time == 0) {   /* thread is finished with the CPU */
-		t = remove_by_index(curr, indexof(curr, tid));   /* remove calling thread from the queue */
-		dealloc_node(t);
-		if (!is_empty(curr)) {      /* signal thread with hp if there are threads still on the queue */
-			signal_hp(tid);
+		t = l_remove(curr, tid);    /* remove calling thread from the queue */
+		node_dealloc(t);
+		ret = globtime;
+		pthread_mutex_lock(&m_queue);
+		if (!l_are_queues_empty()) {      /* signal thread with hp if there are threads still on some queue */
+			/* Pthread_mutex_unlock(&m_sched);*/
+			l_signal_hp(tid);
+			/*Pthread_mutex_lock(&m_sched);*/
 		}
-		return globtime;
+		pthread_mutex_unlock(&m_queue);
 	} else {
-		if (!is_member(curr, tid)) {   /* if thread not on the queue */
-			t = alloc_node(tid, remaining_time, 0, tprio); 
-			enqueue(curr, t);
+		if (!l_is_member(curr, tid)) {   /* if thread not on the queue */
+			if (current_time != ceil(current_time)) {
+				pthread_cond_wait(&cond_time, &m_sched);
+			}
+			t = node_alloc(tid, remaining_time, 0, tprio); 
+			l_enqueue(curr, t);
 		} else {
-			t = curr->q[indexof(curr, tid)];
+			t = l_find(curr, tid);
+			t->current_time = current_time;
 			t->tinfo->required_time = remaining_time;  /* update remaining time for the calling thread */
 		}
 
-		if (find_hp(tid)->tinfo->id == tid) {  /* if this thread is the one with highest priority */
-			round_robin(curr);
-			return globtime;
+		if (l_find_hp(tid)->tinfo->id == tid) {  /* if this thread is the one with highest priority */
+			ret = globtime;
 		} else {
-			signal_hp(tid);   /* signal thread with highest priority */ 
-			if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */
-				pthread_cond_wait(&(curr->q[index]->cond), &m_sched); /* wait until signaled */
-				round_robin(curr);
-				return globtime;
+			pthread_mutex_lock(&m_queue);
+			/* Pthread_mutex_unlock(&m_sched);*/
+			l_signal_hp(tid);   /* signal thread with highest priority */ 
+			/*Pthread_mutex_lock(&m_sched);*/
+			pthread_mutex_unlock(&m_queue);
+			if ((t = l_find(curr, tid)) != NULL) {  /* find index of this thread */
+				pthread_cond_wait(&(t->cond), &m_sched); /* wait until signaled */
+				ret = globtime;
 			}
 		}
 	}
 
-	return globtime;
+	Pthread_mutex_unlock(&m_sched);
+
+	return ret;
 }
 
 /**
  * schedule_fcfs - schedule the calling thread according to 
- *   Mulit-Level Feedback Queue (MLFQ) scheduling (with preemption)
+ *   Multi-Level Feedback Queue (MLFQ) scheduling (with preemption)
  * @param current_time: the time when the call to schedule_fcfs is made 
  *   by a calling thread
  * @param tid: thread identification number of the calling thread
@@ -486,7 +771,7 @@ int scheduleme(float time, int tid, int remaining_time, int tprio)
 		return schedule_srtf(time, tid, remaining_time);
 		break;
 	case PBS:
-		return schedule_pbs(tid, remaining_time, tprio);
+		return schedule_pbs(time, tid, remaining_time, tprio);
 		break;
 	case MLFQ:
 		return schedule_mlfq(time, tid, remaining_time, tprio);
@@ -532,16 +817,23 @@ void init_scheduler(int sched_type)
 		}
 		break;
 	case PBS:
-		if ((ready = (pqueue_t *) malloc(sizeof(*ready) * NUM_PRIO)) == NULL) {
-			/* fprintf  */
-			return;  /* how should we return? */
+		/*if ((ready = (pqueue_t *) malloc(sizeof(*ready) * NUM_PRIO)) == NULL) {
+			return; 
 		}
 
 		for (i = 0; i < NUM_PRIO; i++) {
 			if (init_pqueue(&ready[i]) == -1) {
 				return;
 			}
+		}*/
+		/*if ((l_ready = (link_queue *) malloc(sizeof(*l_ready) * NUM_PRIO)) == NULL) {
+			return;
+		}*/
+
+		for (i = 0; i < NUM_PRIO; i++) {
+			l_ready[i] = link_queue_allocate();
 		}
+
 		break;
 	case MLFQ:
 		if ((ready = (pqueue_t *) malloc(sizeof(*ready) * NUM_PRIO)) == NULL) {
