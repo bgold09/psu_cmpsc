@@ -47,7 +47,6 @@ struct _node_linked
 	_thread_info_t *tinfo;
 	float current_time;
 	pthread_cond_t cond;
-	sem_t sem;
 	struct _node_linked *next;
 };
 typedef struct _node_linked node;
@@ -105,7 +104,6 @@ node *node_alloc(int tid, int remaining_time, float current_time, int priority)
 	p->current_time = current_time;
 	p->next = NULL;
 	pthread_cond_init(&(p)->cond, NULL);
-	sem_init(&(p->sem), 0, 1);
 
 	return p;
 }
@@ -520,46 +518,70 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 	pqueue_t *curr;
 	node_t *t;
 	int index;
+	int empty;
 	int ret;
 
 	ret = -1;
 	curr = &ready[0];
 
-	pthread_mutex_lock(&m_sched);
-
 	pthread_mutex_lock(&m_globtime);
 		globtime = current_time;
 	pthread_mutex_unlock(&m_globtime);
 
-	if (is_empty(curr)) {
+	/* pthtread_cond_signal(&cond_time);  */
+
+	pthread_mutex_lock(&m_sched);	
+
+	if ((empty = is_empty(curr))) {
 		t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
 		enqueue(curr, t);
 		ret = ceil(globtime);
-	} else if (remaining_time == 0) {   /* thread is finished with the CPU */
+	}
+
+	pthread_mutex_unlock(&m_sched);	
+
+	if (empty)
+		return ret;
+
+	pthread_mutex_lock(&m_sched);	
+
+	if (remaining_time == 0) {
 		t = dequeue(curr);  /* remove calling thread from the queue */
 		dealloc_node(t);
 		if (!is_empty(curr)) {      /* signal the head if there are threads still on the queue */
 			pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
 		}
 		ret = globtime;
-	} else {
-		if (!is_member(curr, tid)) {   /* if thread not on the queue */
-			t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
-			enqueue(curr, t);
-		}
+	}
 
-		if (curr->q[curr->head]->tinfo->id == tid) {  /* if this thread at the head */
+	pthread_mutex_unlock(&m_sched);	
+
+	if (remaining_time == 0)
+		return ret;
+
+	pthread_mutex_lock(&m_sched);	
+
+	if (!is_member(curr, tid)) {   /* if thread not on the queue */
+		t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
+		enqueue(curr, t);
+	}
+
+	pthread_mutex_unlock(&m_sched);	
+
+	pthread_mutex_lock(&m_sched);	
+
+	if (curr->q[curr->head]->tinfo->id == tid) {  /* if this thread at the head */
+		ret = globtime;
+	} else {
+		pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
+		if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */
+			pthread_cond_wait(&(curr->q[index]->cond), &m_sched); /* wait until signaled */
 			ret = globtime;
-		} else {
-			pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
-			if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */
-				pthread_cond_wait(&(curr->q[index]->cond), &m_sched); /* wait until signaled */
-				ret = globtime;
-			}
 		}
 	}
 
 	pthread_mutex_unlock(&m_sched);
+
 	return ret;
 }
 
@@ -582,12 +604,7 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 	ret = -1;
 	curr = &ready[0];
 
-	pthread_mutex_lock(&m_sched);
-
-	/*printf("\tT%d arriving with current_time = %.1f\n", tid, current_time);*/
-
 	pthread_mutex_lock(&m_globtime);
-		/* printf("\tupdate globtime from %.1f to  %.1f\n", globtime, current_time);*/
 		globtime = current_time; 
 	pthread_mutex_unlock(&m_globtime); 
 
@@ -595,26 +612,22 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 
 	if (is_empty(curr)) {
 		t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
-		/*printf("\tAdding T%d to the queue\n", tid);*/
 		enqueue(curr, t); 
-		ret = ceil(globtime); /* printf("\t\tline %d: T%d assigning ret = %.1f\n", __LINE__, tid, ceil(globtime));*/
+		ret = ceil(globtime); 
 	} else if (remaining_time == 0) {   /* thread is finished with the CPU */
 		t = remove_by_index(curr, indexof(curr, tid));   /* remove calling thread from the queue */
 		dealloc_node(t);
 		if (!is_empty(curr)) {      /* signal thread with srt if there are threads still on the queue */
 			signal_srt(curr, tid);
 		}
-		ret = globtime;  /* printf("\t\tline %d: T%d assigning ret = %.1f\n", __LINE__, tid, globtime); */
+		ret = globtime;  
 	} else {
 		if (!is_member(curr, tid)) {   /* if thread not on the queue */
 			if (current_time != ceil(current_time)) {
-				/*printf("\t\tT%d not at integral time %.1f, wait...\n", tid, current_time);*/
 				pthread_cond_wait(&cond_time, &m_sched);
-				/*printf("\t\tT%d woke up at time %.1f\n", tid, globtime);*/
 			}
 
 			t = alloc_node(tid, remaining_time, globtime, 0);  /* bogus priority */
-			/* printf("\tAdding T%d to the queue\n", tid); */
 			enqueue(curr, t);
 		} else {
 			t = curr->q[indexof(curr, tid)];
@@ -623,36 +636,21 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 		}
 
 		if (find_srt(curr, tid)->tinfo->id == tid) {  /* if this thread is the one with the shortest remaining time */
-			ret = globtime;  /* printf("\t\tline %d: assigning ret = %.1f\n", __LINE__, globtime); */
+			ret = globtime; 
 		} else {
 			pthread_mutex_lock(&m_signal);
 			signal_srt(curr, tid);   /* signal thread with srt */ 
 			pthread_mutex_unlock(&m_signal);
 			if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */
 				pthread_cond_wait(&(curr->q[index]->cond), &m_sched); /* wait until signaled */
-				ret = globtime; /*  printf("\t\tline %d: assigning ret = %.1f\n", __LINE__, globtime); */
+				ret = globtime; 
 			}
 		}
 	}
 
 	pthread_mutex_unlock(&m_sched);
 
-/*	if (remaining_time != 0)
-		printf("\tT%d returning with time = %d\n", tid, ret);*/
-
 	return ret;
-}
-
-void Pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-	if(pthread_mutex_lock(mutex) != 0)
-		fprintf(stderr, "error locking m_sched\n");
-}
-
-void Pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-	if(pthread_mutex_unlock(mutex) != 0)
-		fprintf(stderr, "error unlocking m_sched\n");
 }
 
 /**
@@ -673,29 +671,22 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 	ret = -1;
 	curr = l_ready[tprio - 1];
 
-	/*Pthread_mutex_lock(&m_sched);*/
-
 	pthread_mutex_lock(&m_globtime);
-		/* printf("\tupdate globtime from %.1f to  %.1f\n", globtime, current_time);*/
 		globtime = current_time; 
 	pthread_mutex_unlock(&m_globtime); 
 
 	pthread_cond_signal(&cond_time);
-
 	
 	pthread_mutex_lock(&m_sched);
 	if ((empty = l_are_queues_empty())) {
 		t = node_alloc(tid, remaining_time, 0, tprio); 
 		l_enqueue(curr, t);
 		ret = ceil(globtime);
-		sem_wait(&(t->sem));
 	}
 	pthread_mutex_unlock(&m_sched);
 
-	if (empty) {
-		sem_post(&(t->sem));
+	if (empty)
 		return ret;
-	}
 
 	pthread_mutex_lock(&m_sched);
 	if (remaining_time == 0) {
@@ -704,9 +695,7 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 		ret = globtime;
 		pthread_mutex_lock(&m_queue);
 		if (!l_are_queues_empty()) {      /* signal thread with hp if there are threads still on some queue */
-			/* Pthread_mutex_unlock(&m_sched);*/
 			l_signal_hp(tid);
-			/*Pthread_mutex_lock(&m_sched);*/
 		}
 		pthread_mutex_unlock(&m_queue);
 	}
@@ -746,60 +735,6 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 	pthread_mutex_unlock(&m_sched);
 
 	return ret;
-
-/*
-	if (l_are_queues_empty()) {
-		pthread_mutex_lock(&m_sched);
-		t = node_alloc(tid, remaining_time, 0, tprio); 
-		l_enqueue(curr, t);
-		ret = ceil(globtime);
-		sem_wait(&(t->sem));
-		pthread_mutex_unlock(&m_sched);
-	} else if (remaining_time == 0) { 
-		pthread_mutex_lock(&m_sched);
-		t = l_remove(curr, tid);   
-		node_dealloc(t);
-		ret = globtime;
-		pthread_mutex_lock(&m_queue);
-		if (!l_are_queues_empty()) { 
-			l_signal_hp(tid);
-		}
-		pthread_mutex_unlock(&m_queue);
-		pthread_mutex_unlock(&m_sched);
-	} else {
-		if (!l_is_member(curr, tid)) { 
-			pthread_mutex_lock(&m_sched);
-			t = node_alloc(tid, remaining_time, 0, tprio); 
-			l_enqueue(curr, t);
-			sem_wait(&(t->sem));
-			pthread_mutex_unlock(&m_sched);
-		} else {
-			pthread_mutex_lock(&m_sched);
-			t = l_find(curr, tid);
-			t->current_time = current_time;
-			t->tinfo->required_time = remaining_time; 
-			pthread_mutex_unlock(&m_sched);
-		}
-
-		if (l_find_hp(tid)->tinfo->id == tid) {  
-			ret = globtime;
-		} else {
-			pthread_mutex_lock(&m_queue);
-			l_signal_hp(tid);    
-			pthread_mutex_unlock(&m_queue);
-			if ((t = l_find(curr, tid)) != NULL) { 
-				sem_wait(&(t->sem));     
-				ret = globtime;
-			}
-		}
-	}*/
-
-	/*if (remaining_time != 0)
-		sem_post(&(t->sem));*/
-
-	/*Pthread_mutex_unlock(&m_sched);*/
-
-	/*return ret;*/
 }
 
 /**
