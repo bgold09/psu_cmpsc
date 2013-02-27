@@ -47,6 +47,7 @@ struct _node_linked
 	_thread_info_t *tinfo;
 	float current_time;
 	pthread_cond_t cond;
+	sem_t sem;
 	struct _node_linked *next;
 };
 typedef struct _node_linked node;
@@ -97,13 +98,14 @@ node *node_alloc(int tid, int remaining_time, float current_time, int priority)
 	tinfo->id = tid;
 	tinfo->required_time = remaining_time;
 	tinfo->arrival_time = globtime /* current_time */;
-	/* printf("arrival_time for T%d: %f\n", tid, tinfo->arrival_time);*/
+	/* printf("arrival_time for T%d: %f\n", tid, tinfo->arrival_time); */
 	tinfo->priority = priority;
 
 	p->tinfo = tinfo;
 	p->current_time = current_time;
 	p->next = NULL;
 	pthread_cond_init(&(p)->cond, NULL);
+	sem_init(&(p->sem), 0, 1);
 
 	return p;
 }
@@ -114,7 +116,6 @@ void node_dealloc(node *p)
 	free(p);
 	p = NULL;
 }
-
 
 void l_enqueue(link_queue *queue, node *p)
 {
@@ -229,8 +230,9 @@ void l_signal_hp(int tid)
 
 	(void) tid;
 	t = l_find_hp();
-	printf("\t\tsignal T%d with prio = %d\n", t->tinfo->id, t->tinfo->priority);
+	/*printf("\t\tsignal T%d with prio = %d\n", t->tinfo->id, t->tinfo->priority);*/
 	pthread_cond_signal(&(t->cond));
+	/*sem_post(&(t->sem));*/
 }
 
 
@@ -665,12 +667,13 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 {
 	link_queue *curr;
 	node *t;
+	int empty;
 	int ret;
 
 	ret = -1;
 	curr = l_ready[tprio - 1];
 
-	Pthread_mutex_lock(&m_sched);
+	/*Pthread_mutex_lock(&m_sched);*/
 
 	pthread_mutex_lock(&m_globtime);
 		/* printf("\tupdate globtime from %.1f to  %.1f\n", globtime, current_time);*/
@@ -679,11 +682,23 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 
 	pthread_cond_signal(&cond_time);
 
-	if (l_are_queues_empty()) {
+	
+	pthread_mutex_lock(&m_sched);
+	if ((empty = l_are_queues_empty())) {
 		t = node_alloc(tid, remaining_time, 0, tprio); 
-		l_enqueue(curr, t); 
+		l_enqueue(curr, t);
 		ret = ceil(globtime);
-	} else if (remaining_time == 0) {   /* thread is finished with the CPU */
+		sem_wait(&(t->sem));
+	}
+	pthread_mutex_unlock(&m_sched);
+
+	if (empty) {
+		sem_post(&(t->sem));
+		return ret;
+	}
+
+	pthread_mutex_lock(&m_sched);
+	if (remaining_time == 0) {
 		t = l_remove(curr, tid);    /* remove calling thread from the queue */
 		node_dealloc(t);
 		ret = globtime;
@@ -694,37 +709,97 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 			/*Pthread_mutex_lock(&m_sched);*/
 		}
 		pthread_mutex_unlock(&m_queue);
-	} else {
-		if (!l_is_member(curr, tid)) {   /* if thread not on the queue */
-			if (current_time != ceil(current_time)) {
-				pthread_cond_wait(&cond_time, &m_sched);
-			}
-			t = node_alloc(tid, remaining_time, 0, tprio); 
-			l_enqueue(curr, t);
-		} else {
-			t = l_find(curr, tid);
-			t->current_time = current_time;
-			t->tinfo->required_time = remaining_time;  /* update remaining time for the calling thread */
-		}
+	}
+	pthread_mutex_unlock(&m_sched);
 
-		if (l_find_hp(tid)->tinfo->id == tid) {  /* if this thread is the one with highest priority */
+	if (remaining_time == 0) 
+		return ret;
+
+	pthread_mutex_lock(&m_sched);
+
+	if (!l_is_member(curr, tid)) { 
+		t = node_alloc(tid, remaining_time, 0, tprio); 
+		l_enqueue(curr, t);
+		pthread_cond_wait(&(t->cond), &m_sched);
+	} else {
+		t = l_find(curr, tid);
+		t->current_time = current_time;
+		t->tinfo->required_time = remaining_time; 
+	}
+	pthread_mutex_unlock(&m_sched);
+
+
+	pthread_mutex_lock(&m_sched);
+
+	if (l_find_hp(tid)->tinfo->id == tid) {  
+		ret = globtime;
+	} else {
+		pthread_mutex_lock(&m_queue);
+		l_signal_hp(tid);    
+		pthread_mutex_unlock(&m_queue);
+		if ((t = l_find(curr, tid)) != NULL) { 
+			pthread_cond_wait(&(t->cond), &m_sched); 
 			ret = globtime;
-		} else {
-			pthread_mutex_lock(&m_queue);
-			/* Pthread_mutex_unlock(&m_sched);*/
-			l_signal_hp(tid);   /* signal thread with highest priority */ 
-			/*Pthread_mutex_lock(&m_sched);*/
-			pthread_mutex_unlock(&m_queue);
-			if ((t = l_find(curr, tid)) != NULL) {  /* find index of this thread */
-				pthread_cond_wait(&(t->cond), &m_sched); /* wait until signaled */
-				ret = globtime;
-			}
 		}
 	}
 
-	Pthread_mutex_unlock(&m_sched);
+	pthread_mutex_unlock(&m_sched);
 
 	return ret;
+
+/*
+	if (l_are_queues_empty()) {
+		pthread_mutex_lock(&m_sched);
+		t = node_alloc(tid, remaining_time, 0, tprio); 
+		l_enqueue(curr, t);
+		ret = ceil(globtime);
+		sem_wait(&(t->sem));
+		pthread_mutex_unlock(&m_sched);
+	} else if (remaining_time == 0) { 
+		pthread_mutex_lock(&m_sched);
+		t = l_remove(curr, tid);   
+		node_dealloc(t);
+		ret = globtime;
+		pthread_mutex_lock(&m_queue);
+		if (!l_are_queues_empty()) { 
+			l_signal_hp(tid);
+		}
+		pthread_mutex_unlock(&m_queue);
+		pthread_mutex_unlock(&m_sched);
+	} else {
+		if (!l_is_member(curr, tid)) { 
+			pthread_mutex_lock(&m_sched);
+			t = node_alloc(tid, remaining_time, 0, tprio); 
+			l_enqueue(curr, t);
+			sem_wait(&(t->sem));
+			pthread_mutex_unlock(&m_sched);
+		} else {
+			pthread_mutex_lock(&m_sched);
+			t = l_find(curr, tid);
+			t->current_time = current_time;
+			t->tinfo->required_time = remaining_time; 
+			pthread_mutex_unlock(&m_sched);
+		}
+
+		if (l_find_hp(tid)->tinfo->id == tid) {  
+			ret = globtime;
+		} else {
+			pthread_mutex_lock(&m_queue);
+			l_signal_hp(tid);    
+			pthread_mutex_unlock(&m_queue);
+			if ((t = l_find(curr, tid)) != NULL) { 
+				sem_wait(&(t->sem));     
+				ret = globtime;
+			}
+		}
+	}*/
+
+	/*if (remaining_time != 0)
+		sem_post(&(t->sem));*/
+
+	/*Pthread_mutex_unlock(&m_sched);*/
+
+	/*return ret;*/
 }
 
 /**
