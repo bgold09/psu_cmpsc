@@ -9,4 +9,4 @@ ${PNAME}: project1.c scheduler.c
 	gcc ${OPT} -o ${PNAME} ${SOURCE}
 
 clean:
-	rm -f ${PNAME} a.out *.o
+	rm -f ${PNAME} a.out *.o temp

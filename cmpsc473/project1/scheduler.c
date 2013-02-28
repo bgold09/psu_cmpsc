@@ -674,8 +674,6 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 		globtime = current_time; 
 	pthread_mutex_unlock(&m_globtime); 
 
-	/* pthread_cond_signal(&cond_time); */
-	
 	pthread_mutex_lock(&m_sched);
 	if ((empty = l_are_queues_empty())) {
 		t = node_alloc(tid, remaining_time, 0, tprio); 
@@ -708,7 +706,7 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 	if (!l_is_member(curr, tid)) { 
 		t = node_alloc(tid, remaining_time, 0, tprio); 
 		l_enqueue(curr, t);
-		/* pthread_cond_wait(&(t->cond), &m_sched); */
+		pthread_cond_wait(&(t->cond), &m_sched);
 	} else {
 		t = l_find(curr, tid);
 		t->current_time = current_time;
