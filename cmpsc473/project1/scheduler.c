@@ -129,6 +129,20 @@ void l_enqueue(link_queue *queue, node *p)
 	pthread_mutex_unlock(&m_queue);
 }
 
+node *l_dequeue(link_queue *queue) 
+{
+	node *t;
+
+	pthread_mutex_lock(&m_queue);
+
+	t = queue->head;
+	queue->head = t->next;
+
+	pthread_mutex_unlock(&m_sched);
+
+	return t;
+}
+
 
 node *l_remove(link_queue *queue, int tid)
 {
@@ -485,14 +499,13 @@ node_t *remove_by_index(pqueue_t *queue, int index)
  */
 int schedule_fcfs(float current_time, int tid, int remaining_time)
 {
-	pqueue_t *curr;
-	node_t *t;
-	int index;
+	link_queue *curr;
+	node *t;
 	int empty;
 	int ret;
 
 	ret = -1;
-	curr = &ready[0];
+	curr = l_ready[0];
 
 	pthread_mutex_lock(&m_globtime);
 		globtime = current_time;
@@ -502,9 +515,9 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);	
 
-	if ((empty = is_empty(curr))) {
-		t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
-		enqueue(curr, t);
+	if ((empty = l_is_empty(curr))) {
+		t = node_alloc(tid, remaining_time, current_time, 0);  /* bogus priority */
+		l_enqueue(curr, t);
 		ret = ceil(globtime);
 	}
 
@@ -516,12 +529,12 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 	pthread_mutex_lock(&m_sched);	
 
 	if (remaining_time == 0) {
-		t = dequeue(curr);  /* remove calling thread from the queue */
-		dealloc_node(t);
-		if (!is_empty(curr)) {      /* signal the head if there are threads still on the queue */
-			pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
-		}
+		t = l_remove(curr, tid);  /* remove calling thread from the queue */
+		node_dealloc(t);
 		ret = globtime;
+		if (!l_is_empty(curr)) {      /* signal the head if there are threads still on the queue */
+			pthread_cond_signal(&(curr->head->cond)); /* signal head */
+		}
 	}
 
 	pthread_mutex_unlock(&m_sched);	
@@ -531,21 +544,21 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);	
 
-	if (!is_member(curr, tid)) {   /* if thread not on the queue */
-		t = alloc_node(tid, remaining_time, current_time, 0);  /* bogus priority */
-		enqueue(curr, t);
+	if (!l_is_member(curr, tid)) {   /* if thread not on the queue */
+		t = node_alloc(tid, remaining_time, current_time, 0);  /* bogus priority */
+		l_enqueue(curr, t);
 	}
 
 	pthread_mutex_unlock(&m_sched);	
 
 	pthread_mutex_lock(&m_sched);	
 
-	if (curr->q[curr->head]->tinfo->id == tid) {  /* if this thread at the head */
+	if (curr->head->tinfo->id == tid) {  /* if this thread at the head */
 		ret = globtime;
 	} else {
-		pthread_cond_signal(&(curr->q[curr->head]->cond)); /* signal head */
-		if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */
-			pthread_cond_wait(&(curr->q[index]->cond), &m_sched); /* wait until signaled */
+		pthread_cond_signal(&(curr->head->cond)); /* signal head */
+		if ((t = l_find(curr, tid)) != NULL) {  /* find index of this thread */
+			pthread_cond_wait(&(t->cond), &m_sched); /* wait until signaled */
 			ret = globtime;
 		}
 	}
@@ -802,6 +815,10 @@ void init_scheduler(int sched_type)
 		if (init_pqueue(&ready[0]) == -1) {
 			return;
 		}
+
+		l_ready[0] = link_queue_allocate();
+
+
 		break;
 	case SRTF:
 		if ((ready = (pqueue_t *) malloc(sizeof(*ready))) == NULL) {
