@@ -215,7 +215,7 @@ node *l_find(link_queue *queue, int tid)
 	return NULL;
 }
 
-node *l_find_hp() 
+node *l_find_hp(void) 
 {
 	node *high;
 	node *p;
@@ -236,15 +236,12 @@ node *l_find_hp()
 	return high;
 }
 
-void l_signal_hp(int tid)
+void l_signal_hp(void)
 {
 	node *t;
 
-	(void) tid;
 	t = l_find_hp();
-	/*printf("\t\tsignal T%d with prio = %d\n", t->tinfo->id, t->tinfo->priority);*/
 	pthread_cond_signal(&(t->cond));
-	/*sem_post(&(t->sem));*/
 }
 
 
@@ -333,7 +330,6 @@ node_t *alloc_node(int tid, int remaining_time, float current_time, int priority
 	tinfo->id = tid;
 	tinfo->required_time = remaining_time;
 	tinfo->arrival_time = globtime /* current_time */;
-	/* printf("arrival_time for T%d: %f\n", tid, tinfo->arrival_time);*/
 	tinfo->priority = priority;
 
 	p->tinfo = tinfo;
@@ -361,15 +357,13 @@ int indexof(pqueue_t *queue, int tid)
 }
 
 
-node_t *find_srt(pqueue_t *queue, int tid)
+node_t *find_srt(pqueue_t *queue)
 {
 	node_t *min;
 	node_t *p;
 	int tail;
 	int head;
 	int i;
-
-	(void) tid;
 
 	pthread_mutex_lock(&m_queue);
 
@@ -395,59 +389,6 @@ node_t *find_srt(pqueue_t *queue, int tid)
 	return min;
 }
 
-node_t *find_hp(int tid)
-{
-	node_t *hp;
-	node_t *curr;
-	pqueue_t *queue;
-	int tail;
-	int head;
-	int i;
-
-	(void) tid;
-
-	pthread_mutex_lock(&m_queue);
-
-	hp = NULL;
-
-	for (i = 0; i < NUM_PRIO && is_empty(&ready[i]); i++);
-	queue = &ready[i];
-
-	tail = queue->tail;
-	head = queue->head;
-	
-	if (head == tail) {
-		pthread_mutex_unlock(&m_queue);
-		return NULL;
-	}
-
-	hp = queue->q[head];
-
-	for (i = (head + 1) % MAX_SIZE; i != tail; i = (i + 1) % MAX_SIZE) {
-		curr = queue->q[i];
-
-		if (curr->current_time < hp->current_time) {
-			hp = curr;
-		}
-	}
-
-	pthread_mutex_unlock(&m_queue);
-
-	return hp;
-}
-
-int signal_hp(int tid)
-{
-	node_t *t;
-
-	if ((t = find_hp(tid)) == NULL) {
-		fprintf(stderr, "find_hp failed, call from T%d\n", tid);
-		return 0;
-	}
-	pthread_cond_signal(&(t->cond));
-	return 0;
-}
-
 int round_robin(pqueue_t *queue)
 {
 	(void) queue;
@@ -459,12 +400,11 @@ int round_robin(pqueue_t *queue)
  * @param queue:
  * @return success/failure return value from pthread_cond_signal
  */
-int signal_srt(pqueue_t *queue, int tid)
+int signal_srt(pqueue_t *queue)
 {
 	node_t *t;
 
-	t = find_srt(queue, tid);
-	/* printf("\t\tsignal T%d from T%d\n", t->tinfo->id, tid); */
+	t = find_srt(queue);
 	return pthread_cond_signal(&(t->cond));
 }
 
@@ -510,8 +450,6 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 	pthread_mutex_lock(&m_globtime);
 		globtime = current_time;
 	pthread_mutex_unlock(&m_globtime);
-
-	/* pthtread_cond_signal(&cond_time);  */
 
 	pthread_mutex_lock(&m_sched);	
 
@@ -611,7 +549,7 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 		t = remove_by_index(curr, indexof(curr, tid));   /* remove calling thread from the queue */
 		dealloc_node(t);
 		if (!is_empty(curr)) {      /* signal thread with srt if there are threads still on the queue */
-			signal_srt(curr, tid);
+			signal_srt(curr);
 		}
 		ret = globtime;
 	}
@@ -626,7 +564,7 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 	if (!is_member(curr, tid)) {   /* if thread not on the queue */
 		t = alloc_node(tid, remaining_time, globtime, 0);  /* bogus priority */
 		enqueue(curr, t);
-		pthread_cond_wait(&(t->cond), &m_sched);  /* ********* */
+		pthread_cond_wait(&(t->cond), &m_sched);
 	} else {
 		t = curr->q[indexof(curr, tid)];
 		t->current_time = current_time;
@@ -637,10 +575,10 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);
 
-	if (find_srt(curr, tid)->tinfo->id == tid) {  /* if this thread is the one with the shortest remaining time */
+	if (find_srt(curr)->tinfo->id == tid) {  /* if this thread is the one with the shortest remaining time */
 		ret = globtime; 
 	} else {
-		signal_srt(curr, tid);   /* signal thread with srt */ 
+		signal_srt(curr);   /* signal thread with srt */ 
 		if ((index = indexof(curr, tid)) != -1) {  /* find index of this thread */
 			pthread_cond_wait(&(curr->q[index]->cond), &m_sched); /* wait until signaled */
 			ret = globtime; 
@@ -692,7 +630,7 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 		ret = globtime;
 		pthread_mutex_lock(&m_queue);
 		if (!l_are_queues_empty()) {      /* signal thread with hp if there are threads still on some queue */
-			l_signal_hp(tid);
+			l_signal_hp();
 		}
 		pthread_mutex_unlock(&m_queue);
 	}
@@ -717,11 +655,11 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 
 	pthread_mutex_lock(&m_sched);
 
-	if (l_find_hp(tid)->tinfo->id == tid) {  
+	if (l_find_hp()->tinfo->id == tid) {  
 		ret = globtime;
 	} else {
 		pthread_mutex_lock(&m_queue);
-		l_signal_hp(tid);    
+		l_signal_hp();    
 		pthread_mutex_unlock(&m_queue);
 		if ((t = l_find(curr, tid)) != NULL) { 
 			pthread_cond_wait(&(t->cond), &m_sched); 
