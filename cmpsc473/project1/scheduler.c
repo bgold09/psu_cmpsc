@@ -10,12 +10,17 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define FCFS 0
-#define SRTF 1
-#define PBS  2
-#define MLFQ 3
+#define FCFS     0
+#define SRTF     1
+#define PBS      2
+#define MLFQ     3
 #define MAX_SIZE 16
 #define NUM_PRIO 5
+#define TQ1      5
+#define TQ2      10
+#define TQ3      15
+#define TQ4      20
+#define TQ5      25
 
 struct _thread_info 
 {
@@ -66,9 +71,11 @@ pthread_mutex_t m_queue;
 pthread_mutex_t m_sched;
 pthread_mutex_t m_globtime;
 pthread_mutex_t m_signal;
-pthread_cond_t cond_time;
+int last_tid;
+int last_tid_prio;
+int counter;
 float globtime;
-
+int quantum[] = {TQ1, TQ2, TQ3, TQ4, TQ5};
 
 link_queue *link_queue_allocate(void) 
 {
@@ -111,6 +118,8 @@ node *node_alloc(int tid, int remaining_time, float current_time, int priority)
 void node_dealloc(node *p) 
 {
 	free(p->tinfo);
+	p->tinfo = NULL;
+	pthread_cond_destroy(&(p->cond));
 	free(p);
 	p = NULL;
 }
@@ -137,8 +146,9 @@ node *l_dequeue(link_queue *queue)
 
 	t = queue->head;
 	queue->head = t->next;
+	t->next = NULL;
 
-	pthread_mutex_unlock(&m_sched);
+	pthread_mutex_unlock(&m_queue);
 
 	return t;
 }
@@ -244,6 +254,44 @@ void l_signal_hp(void)
 	pthread_cond_signal(&(t->cond));
 }
 
+node *find_mlfq(void)
+{
+	int i;
+
+	for (i = 0; i < NUM_PRIO && l_is_empty(l_ready[i]); i++);
+
+	return l_ready[i]->head;
+}
+
+void signal_mlfq(void)
+{
+	node *t;
+
+	t = find_mlfq();
+	last_tid = t->tinfo->id;
+	pthread_cond_signal(&(t->cond));
+}
+
+void reset_counter(int index)
+{
+	if (index <= NUM_PRIO - 2)
+		counter = quantum[index + 1];
+	else 
+		counter = quantum[index];
+}
+
+void mlfq_age(int index)
+{
+	node *t;
+
+	if (index <= NUM_PRIO - 2) {
+		t = l_dequeue(l_ready[index]);
+		l_enqueue(l_ready[index + 1], t);
+	} else {
+		t = l_dequeue(l_ready[index]);
+		l_enqueue(l_ready[index], t);
+	}
+}
 
 int init_pqueue(pqueue_t *queue)
 {
@@ -389,12 +437,6 @@ node_t *find_srt(pqueue_t *queue)
 	return min;
 }
 
-int round_robin(pqueue_t *queue)
-{
-	(void) queue;
-	return 0;
-}
-
 /**
  * signal_srt - 
  * @param queue:
@@ -429,6 +471,23 @@ node_t *remove_by_index(pqueue_t *queue, int index)
 
 	return ret;
 }
+
+int queue_find(int tid) 
+{
+	int i; 
+
+	for (i = 0; i < NUM_PRIO; i++) {
+		if (l_is_member(l_ready[i], tid)) {
+			return i; 
+		}
+	}
+
+	return -1;
+}
+
+
+
+
 
 /**
  * schedule_fcfs - schedule the calling thread according to 
@@ -673,39 +732,171 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 }
 
 /**
- * schedule_fcfs - schedule the calling thread according to 
+ * schedule_mlfq - schedule the calling thread according to 
  *   Multi-Level Feedback Queue (MLFQ) scheduling (with preemption)
  * @param current_time: the time when the call to schedule_fcfs is made 
  *   by a calling thread
  * @param tid: thread identification number of the calling thread
  * @param remaining_time: amount of CPU time requested by the thread
- * @param tprio: priority of the thread
  * @return the global current time
  */
-int schedule_mlfq(float current_time, int tid, int remaining_time, int tprio) 
+int schedule_mlfq(float current_time, int tid, int remaining_time) 
 {
-	(void) current_time;
-	(void) tid;
-	(void) remaining_time;
-	(void) tprio;
-	return 0;
+	link_queue *curr;
+	node *t;
+	int empty;
+	int index;
+	int preempt;
+	int last_is_running;
+	int last_finished;
+	int new;
+	int ret;
+
+	ret = -1;
+	new = 0;
+	curr = NULL;
+
+	pthread_mutex_lock(&m_globtime);
+		globtime = current_time; 
+	pthread_mutex_unlock(&m_globtime); 
+
+	pthread_mutex_lock(&m_sched);
+
+	if ((empty = l_are_queues_empty())) {
+		t = node_alloc(tid, remaining_time, 0, 0); 
+		l_enqueue(l_ready[0], t);
+		ret = ceil(globtime);
+		last_tid = tid;
+		counter = TQ1 - 1;
+		last_tid_prio = 1;
+	}
+	pthread_mutex_unlock(&m_sched);
+
+	if (empty)
+		return ret;
+
+	if ((index = queue_find(tid)) != -1)
+		curr = l_ready[index];
+
+	pthread_mutex_lock(&m_sched);
+	if (remaining_time == 0) {
+		t = l_dequeue(curr);            /* remove calling thread from the queue */
+		node_dealloc(t);
+		ret = globtime;
+		if (!l_are_queues_empty()) {    /* signal thread with hp if there are threads still on some queue */
+			signal_mlfq();
+		}
+	}
+	pthread_mutex_unlock(&m_sched);
+
+	if (remaining_time == 0) 
+		return ret;
+
+	pthread_mutex_lock(&m_sched);
+
+	if (curr == NULL) { 
+		t = node_alloc(tid, remaining_time, 0, 0); 
+		l_enqueue(l_ready[0], t);
+		pthread_cond_wait(&(t->cond), &m_sched);
+		reset_counter(0);
+		ret = globtime;
+		new = 1;
+	} else {
+		t = l_find(curr, tid);
+		t->tinfo->required_time = remaining_time; 
+	}
+	pthread_mutex_unlock(&m_sched);
+
+
+	pthread_mutex_lock(&m_sched);
+
+	index = queue_find(tid);
+	curr = l_ready[index];
+
+	/* 
+	 * if we are the last process to run, but some other process 
+	 * was introduced during our time quantum  
+	 */
+	if ((preempt = (last_tid == tid && counter >= 0 && l_ready[0]->head != NULL 
+					&& l_ready[0]->head->tinfo->id != tid))) {
+		t = l_find(curr, tid);
+		signal_mlfq();
+		pthread_cond_wait(&(t->cond), &m_sched);
+		ret = globtime;
+		reset_counter(index - 1);
+	}
+
+	pthread_mutex_unlock(&m_sched);
+
+	if (preempt)
+		return ret;
+
+	pthread_mutex_lock(&m_sched);
+
+	index = queue_find(tid);
+	curr = l_ready[index];
+
+	/* this is the last running thread, but no higher threads have been introduced */
+	if ((last_is_running = (last_tid == tid && counter > 0))) {
+		if (!new) {
+			ret = globtime;
+		} else {
+			counter = TQ1;
+		}
+		counter--;
+	}
+
+	pthread_mutex_unlock(&m_sched);
+
+	if (last_is_running)
+		return ret;
+
+	pthread_mutex_lock(&m_sched);
+
+	index = queue_find(tid);
+	curr = l_ready[index];
+
+	if ((last_finished = (last_tid == tid && counter == 0))) {
+		mlfq_age(index);
+		t = find_mlfq();
+		if (t->tinfo->id != tid) {
+			signal_mlfq();
+			curr = l_ready[queue_find(tid)];
+			t = l_find(curr, tid);
+			pthread_cond_wait(&(t->cond), &m_sched);
+		}
+		ret = globtime;
+		reset_counter(index);
+		counter--;
+	}
+
+	pthread_mutex_unlock(&m_sched);
+	
+	if (last_finished)
+		return ret;
+
+	pthread_mutex_lock(&m_sched);
+
+	index = queue_find(tid);
+	curr = l_ready[index];
+
+	t = find_mlfq();
+	if (t->tinfo->id != tid) {
+		signal_mlfq();
+		pthread_cond_wait(&(t->cond), &m_sched);
+	}
+	ret = globtime;
+	reset_counter(index);
+
+	pthread_mutex_unlock(&m_sched);
+
+	return ret;
 }
 
 int scheduleme(float time, int tid, int remaining_time, int tprio)
 {
 	int ret;
 
-/*	pthread_mutex_lock(&m_sched);
-	pthread_mutex_lock(&m_globtime);*/
-		/*globtime = time; *//* hack - will this work? */
-	/* pthread_mutex_unlock(&m_globtime); */
-	/* pthread_mutex_unlock(&m_sched);*/
-
-
-	/* if (time != ceil(time))
-		pthread_cond_wait(&cond_time, &m_sched);
-	else 
-		pthread_cond_signal(&cond_time); */
 	ret = 0;
 
 	switch(type) {
@@ -719,7 +910,7 @@ int scheduleme(float time, int tid, int remaining_time, int tprio)
 		return schedule_pbs(time, tid, remaining_time, tprio);
 		break;
 	case MLFQ:
-		return schedule_mlfq(time, tid, remaining_time, tprio);
+		return schedule_mlfq(time, tid, remaining_time);
 		break;
 	}
 
@@ -740,7 +931,6 @@ void init_scheduler(int sched_type)
 	pthread_mutex_init(&m_sched, NULL);
 	pthread_mutex_init(&m_globtime, NULL);
 	pthread_mutex_init(&m_signal, NULL);
-	pthread_cond_init(&cond_time, NULL);
 
 	switch(sched_type) {
 	case FCFS:
@@ -766,38 +956,20 @@ void init_scheduler(int sched_type)
 		}
 		break;
 	case PBS:
-		/*if ((ready = (pqueue_t *) malloc(sizeof(*ready) * NUM_PRIO)) == NULL) {
-			return; 
-		}
-
-		for (i = 0; i < NUM_PRIO; i++) {
-			if (init_pqueue(&ready[i]) == -1) {
-				return;
-			}
-		}*/
-		/*if ((l_ready = (link_queue *) malloc(sizeof(*l_ready) * NUM_PRIO)) == NULL) {
-			return;
-		}*/
-
 		for (i = 0; i < NUM_PRIO; i++) {
 			l_ready[i] = link_queue_allocate();
 		}
 
 		break;
 	case MLFQ:
-		if ((ready = (pqueue_t *) malloc(sizeof(*ready) * NUM_PRIO)) == NULL) {
-			/* fprintf  */
-			return;  /* how should we return? */
-		}
-		
 		for (i = 0; i < NUM_PRIO; i++) {
-			if (init_pqueue(&ready[i]) == -1) {
-				return;
-			}
+			l_ready[i] = link_queue_allocate();
 		}
+		last_tid = 0;
+		counter = 0;
+		last_tid_prio = 0;
 		break;
 	default:
-		/* fprintf(stderr, "%s: invalid scheduler type %d\n", prog, sched_type);*/
 		fprintf(stderr, "invalid scheduler type %d, defaulting to FCFS\n", sched_type);
 		type = FCFS;
 		if ((ready = (pqueue_t *) malloc(sizeof(*ready))) == NULL) {
