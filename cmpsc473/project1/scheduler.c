@@ -36,51 +36,31 @@ struct _node
 	_thread_info_t *tinfo;
 	float current_time;
 	pthread_cond_t cond;
+	struct _node *next;
 };
-typedef struct _node node_t; 
-
-struct _thread_queue
-{
-	node_t *q[MAX_SIZE];
-	int head;
-	int tail;  /* tail points to element after the last element */
-};
-typedef struct _thread_queue pqueue_t;
-
-struct _node_linked
-{
-	_thread_info_t *tinfo;
-	float current_time;
-	pthread_cond_t cond;
-	struct _node_linked *next;
-};
-typedef struct _node_linked node;
+typedef struct _node node;
 
 struct _link_queue
 {
 	node *head;
 	node *tail;
 };
-typedef struct _link_queue link_queue;
+typedef struct _link_queue pqueue_t;
 
-extern char *prog;
-pqueue_t *ready;
-link_queue *l_ready[NUM_PRIO];
+static pqueue_t *l_ready[NUM_PRIO];
 static int type;
 pthread_mutex_t m_sched;
 pthread_mutex_t m_globtime;
-pthread_mutex_t m_signal;
 int last_tid;
-int last_tid_prio;
 int counter;
 float globtime;
 int quantum[] = {TQ1, TQ2, TQ3, TQ4, TQ5};
 
-link_queue *link_queue_allocate(void) 
+pqueue_t *pqueue_allocate(void) 
 {
-	link_queue *p;
+	pqueue_t *p;
 	
-	p = (link_queue *) malloc(sizeof(*p));
+	p = (pqueue_t *) malloc(sizeof(*p));
 	p->head = NULL;
 	p->tail = NULL;
 
@@ -102,8 +82,7 @@ node *node_alloc(int tid, int remaining_time, float current_time, int priority)
 
 	tinfo->id = tid;
 	tinfo->required_time = remaining_time;
-	tinfo->arrival_time = globtime /* current_time */;
-	/* printf("arrival_time for T%d: %f\n", tid, tinfo->arrival_time); */
+	tinfo->arrival_time = globtime;
 	tinfo->priority = priority;
 
 	p->tinfo = tinfo;
@@ -123,7 +102,7 @@ void node_dealloc(node *p)
 	p = NULL;
 }
 
-void l_enqueue(link_queue *queue, node *p)
+void l_enqueue(pqueue_t *queue, node *p)
 {
 	if (queue->head == NULL) {
 		queue->head = queue->tail = p;
@@ -133,7 +112,7 @@ void l_enqueue(link_queue *queue, node *p)
 	}
 }
 
-node *l_dequeue(link_queue *queue) 
+node *l_dequeue(pqueue_t *queue) 
 {
 	node *t;
 
@@ -145,7 +124,7 @@ node *l_dequeue(link_queue *queue)
 }
 
 
-node *l_remove(link_queue *queue, int tid)
+node *l_remove(pqueue_t *queue, int tid)
 {
 	node *p;
 	node *ret;
@@ -172,7 +151,7 @@ node *l_remove(link_queue *queue, int tid)
 	return ret;
 }
 
-int l_is_empty(link_queue *queue) 
+int l_is_empty(pqueue_t *queue) 
 {
 	return queue->head == NULL;
 }
@@ -190,7 +169,7 @@ int l_are_queues_empty()
 	return 1;
 }
 
-int l_is_member(link_queue *queue, int tid)
+int l_is_member(pqueue_t *queue, int tid)
 {
 	node *p;
 
@@ -203,7 +182,7 @@ int l_is_member(link_queue *queue, int tid)
 	return 0;
 }
 
-node *l_find(link_queue *queue, int tid)
+node *l_find(pqueue_t *queue, int tid)
 {
 	node *p;
 
@@ -220,7 +199,7 @@ node *l_find_hp(void)
 {
 	node *high;
 	node *p;
-	link_queue *queue;
+	pqueue_t *queue;
 	int i;
 
 	for (i = 0; i < NUM_PRIO && l_is_empty(l_ready[i]); i++);
@@ -284,161 +263,10 @@ void mlfq_age(int index)
 	}
 }
 
-int init_pqueue(pqueue_t *queue)
-{
-	queue->head = 0;
-	queue->tail = 0;
-
-	return 0;
-}
-int is_empty(pqueue_t *q)
-{
-	return q->head == q->tail;
-}
-
-int are_queues_empty(void)
-{
-	int i;
-
-	for (i = 0; i < NUM_PRIO; i++) {
-		if (is_empty(&ready[i])) {
-			return 0;
-		}
-	}
-
-	return 1;
-}
-
-/*  */
-int is_member(pqueue_t *queue, int tid)
-{
-	int i; 
-	
-	for (i = queue->head; i != queue->tail; i = (i + 1) % MAX_SIZE) {
-		if (queue->q[i]->tinfo->id == tid) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-void dealloc_node(node_t *t)
-{
-	free(t->tinfo);
-	pthread_cond_destroy(&(t->cond));
-	free(t);
-	t = NULL;
-}
-
-void enqueue(pqueue_t *queue, node_t *t)
-{
-	queue->q[queue->tail] = t;
-	queue->tail = (queue->tail + 1) % MAX_SIZE;
-}
-
-node_t *dequeue(pqueue_t *queue)
-{
-	node_t *ret;
-
-
-	ret = queue->q[queue->head];
-	queue->head = (queue->head + 1) % MAX_SIZE;
-
-	return ret;
-}
-
-node_t *alloc_node(int tid, int remaining_time, float current_time, int priority)
-{
-	_thread_info_t *tinfo;
-	node_t *p;
-
-	if ((tinfo = (_thread_info_t *) malloc(sizeof(*tinfo))) == NULL) {
-		return NULL;
-	}
-
-	if ((p = (node_t *) malloc(sizeof(node_t))) == NULL) {
-		return NULL;
-	}
-
-	tinfo->id = tid;
-	tinfo->required_time = remaining_time;
-	tinfo->arrival_time = globtime /* current_time */;
-	tinfo->priority = priority;
-
-	p->tinfo = tinfo;
-	p->current_time = current_time;
-	pthread_cond_init(&(p)->cond, NULL);
-
-	return p;
-}
-
-
-int indexof(pqueue_t *queue, int tid)
-{
-	int i;
-	int tail;
-
-	tail = queue->tail;
-
-	for (i = queue->head; i != tail; i = (i + 1) % MAX_SIZE) {
-		if (queue->q[i]->tinfo->id == tid) {
-			return i;
-		}
-	}
-
-	return -1;
-}
-
-
-node_t *find_srt(pqueue_t *queue)
-{
-	node_t *min;
-	node_t *p;
-	int tail;
-	int head;
-	int i;
-
-
-	tail = queue->tail;
-	head = queue->head;
-	min = NULL;
-
-	if (head != tail)
-		min = queue->q[head];
-
-	for (i = head; i != tail; i = (i + 1) % MAX_SIZE) {
-		p = queue->q[i];
-
-		if (p->tinfo->required_time < min->tinfo->required_time 
-				|| (p->tinfo->required_time == min->tinfo->required_time && 
-					p->current_time < min->current_time)) {
-			min = p;
-		}
-	}
-
-
-	return min;
-}
-
-/**
- * signal_srt - 
- * @param queue:
- * @return success/failure return value from pthread_cond_signal
- */
-int signal_srt(pqueue_t *queue)
-{
-	node_t *t;
-
-	t = find_srt(queue);
-	return pthread_cond_signal(&(t->cond));
-}
-
-node *l_find_srt(link_queue *queue)
+node *l_find_srt(pqueue_t *queue)
 {
 	node *min;
 	node *p;
-
 
 	min = NULL;
 
@@ -458,60 +286,11 @@ node *l_find_srt(link_queue *queue)
 	return min;
 }
 
-int l_signal_srt(link_queue *queue)
+int l_signal_srt(pqueue_t *queue)
 {
 	node *t;
 	t = l_find_srt(queue);
 	return pthread_cond_signal(&(t->cond));
-}
-
-node *remove_by_tid(link_queue *queue, int tid)
-{
-	node *p;
-	node *ret;
-
-
-	ret = NULL;
-
-	if (queue->head->tinfo->id == tid) {
-		ret = queue->head;
-		queue->head = queue->head->next;
-		ret->next = NULL;
-		return ret;
-	}
-
-	for (p = queue->head; p->next != NULL; p = p->next) {
-		if (p->next->tinfo->id == tid) {
-			ret = p->next;
-			p->next = p->next->next;
-			ret->next = NULL;
-			return ret;
-		}
-	}
-
-
-	return ret;
-}
-
-
-node_t *remove_by_index(pqueue_t *queue, int index)
-{
-	node_t *ret;
-	int i;
-	int tail;
-
-
-	ret = queue->q[index];
-	tail = queue->tail;
-
-	for (i = index; i != tail; i = (i + 1) % MAX_SIZE) { /* shift elements to the right */
-		queue->q[i] = queue->q[(i + 1) % MAX_SIZE];
-	}
-
-	queue->tail = (tail - 1) % MAX_SIZE;
-
-
-	return ret;
 }
 
 int queue_find(int tid) 
@@ -536,7 +315,7 @@ int queue_find(int tid)
  */
 int schedule_fcfs(float current_time, int tid, int remaining_time)
 {
-	link_queue *curr;
+	pqueue_t *curr;
 	node *t;
 	int empty;
 	int ret;
@@ -614,7 +393,7 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
  */
 int schedule_srtf(float current_time, int tid, int remaining_time)
 {
-	link_queue *curr;
+	pqueue_t *curr;
 	node *t;
 	int empty;
 	int ret;
@@ -695,7 +474,7 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
  */
 int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 {
-	link_queue *curr;
+	pqueue_t *curr;
 	node *t;
 	int empty;
 	int ret;
@@ -774,7 +553,7 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
  */
 int schedule_mlfq(float current_time, int tid, int remaining_time) 
 {
-	link_queue *curr;
+	pqueue_t *curr;
 	node *t;
 	int empty;
 	int index;
@@ -800,7 +579,6 @@ int schedule_mlfq(float current_time, int tid, int remaining_time)
 		ret = ceil(globtime);
 		last_tid = tid;
 		counter = TQ1 - 1;
-		last_tid_prio = 1;
 	}
 	pthread_mutex_unlock(&m_sched);
 
@@ -927,10 +705,6 @@ int schedule_mlfq(float current_time, int tid, int remaining_time)
 
 int scheduleme(float time, int tid, int remaining_time, int tprio)
 {
-	int ret;
-
-	ret = 0;
-
 	switch(type) {
 	case FCFS:
 		return schedule_fcfs(time, tid, remaining_time);
@@ -946,7 +720,7 @@ int scheduleme(float time, int tid, int remaining_time, int tprio)
 		break;
 	}
 
-	return ret;   /* FIX THIS */
+	return 0;
 }
 
 /**
@@ -961,48 +735,31 @@ void init_scheduler(int sched_type)
 	type = sched_type;
 	pthread_mutex_init(&m_sched, NULL);
 	pthread_mutex_init(&m_globtime, NULL);
-	pthread_mutex_init(&m_signal, NULL);
 
 	switch(sched_type) {
 	case FCFS:
-		l_ready[0] = link_queue_allocate();
+		l_ready[0] = pqueue_allocate();
 		break;
 	case SRTF:
-		if ((ready = (pqueue_t *) malloc(sizeof(*ready))) == NULL) {
-			/* fprintf  */
-			return;  /* how should we return? */
-		}
-		if (init_pqueue(&ready[0]) == -1) {
-			return;
-		}
-
-		l_ready[0] = link_queue_allocate();
-
+		l_ready[0] = pqueue_allocate();
 		break;
 	case PBS:
 		for (i = 0; i < NUM_PRIO; i++) {
-			l_ready[i] = link_queue_allocate();
+			l_ready[i] = pqueue_allocate();
 		}
 
 		break;
 	case MLFQ:
 		for (i = 0; i < NUM_PRIO; i++) {
-			l_ready[i] = link_queue_allocate();
+			l_ready[i] = pqueue_allocate();
 		}
 		last_tid = 0;
 		counter = 0;
-		last_tid_prio = 0;
 		break;
 	default:
 		fprintf(stderr, "invalid scheduler type %d, defaulting to FCFS\n", sched_type);
 		type = FCFS;
-		if ((ready = (pqueue_t *) malloc(sizeof(*ready))) == NULL) {
-			/* fprintf  */
-			return;  /* how should we return? */
-		}
-		if (init_pqueue(&ready[0]) == -1) {
-			return;
-		}
+		l_ready[0] = pqueue_allocate();
 		break;
 	}
 }
