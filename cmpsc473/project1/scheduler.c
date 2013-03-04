@@ -412,8 +412,8 @@ node *find_srt(pqueue_t *queue)
 		 * or same remaining time but earlier arrival time 
 		 */
 		if (p->tinfo->required_time < min->tinfo->required_time 
-				|| (p->tinfo->required_time == min->tinfo->required_time && 
-					p->current_time < min->current_time)) {
+			|| (p->tinfo->required_time == min->tinfo->required_time
+				&& p->current_time < min->current_time)) {
 			min = p;  /* found new candidate thread */
 		}
 	}
@@ -474,8 +474,9 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);	
 	/* queue is empty, append and schedule thread */
-	if ((empty = is_empty(curr))) {     
-		t = node_alloc(tid, remaining_time, current_time, 0);  /* bogus priority */
+	if ((empty = is_empty(curr))) {
+		/* bogus priority */
+		t = node_alloc(tid, remaining_time, current_time, 0);  
 		enqueue(curr, t);
 		ret = ceil(globtime);
 	}
@@ -485,13 +486,14 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 		return ret;
 
 	pthread_mutex_lock(&m_sched);	
-	if (remaining_time == 0) {        /* this thread is done running */
-		t = pqueue_remove(curr, tid);  /* remove calling thread from queue */
+	if (remaining_time == 0) {            /* this thread is done running */
+		t = pqueue_remove(curr, tid); /* remove thread from the queue */
 		node_dealloc(t);
 		ret = globtime;
 		/* if there are threads still on the queue */
 		if (!is_empty(curr)) {  
-			pthread_cond_signal(&(curr->head->cond)); /* signal head */
+			/* signal head */
+			pthread_cond_signal(&(curr->head->cond)); 
 		}
 	}
 	pthread_mutex_unlock(&m_sched);
@@ -501,7 +503,7 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);	
 	if (!is_member(curr, tid)) {   /* if thread is not on the queue */
-		t = node_alloc(tid, remaining_time, current_time, 0);  /* bogus priority */
+		t = node_alloc(tid, remaining_time, current_time, 0);  
 		enqueue(curr, t);
 	}
 	pthread_mutex_unlock(&m_sched);	
@@ -511,8 +513,10 @@ int schedule_fcfs(float current_time, int tid, int remaining_time)
 		ret = globtime;
 	} else {
 		pthread_cond_signal(&(curr->head->cond)); /* signal head */
-		if ((t = queue_find(curr, tid)) != NULL) {  /* find index of this thread */
-			pthread_cond_wait(&(t->cond), &m_sched); /* wait until signaled */
+		/* find index of this thread */
+		if ((t = queue_find(curr, tid)) != NULL) {  
+			/* wait until signaled */
+			pthread_cond_wait(&(t->cond), &m_sched); 
 			ret = globtime;
 		}
 	}
@@ -546,7 +550,7 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);
 	if ((empty = is_empty(curr))) {   /* curr is empty  */
-		t = node_alloc(tid, remaining_time, current_time, 0);  /* bogus priority */
+		t = node_alloc(tid, remaining_time, current_time, 0);  
 		enqueue(curr, t); 
 		ret = ceil(globtime);
 	}
@@ -557,9 +561,10 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);
 	if (remaining_time == 0) {             /* thread is finished with CPU */
-		t = pqueue_remove(curr, tid);  /* remove thread from the queue */
+		t = pqueue_remove(curr, tid);  /* remove thread from queue */
 		node_dealloc(t);
-		if (!is_empty(curr)) {         /* signal thread with srt if there are threads still on the queue */
+		/* signal thread with srt if there are threads still on curr */
+		if (!is_empty(curr)) {         
 			signal_srt(curr);
 		}
 		ret = globtime;
@@ -571,23 +576,26 @@ int schedule_srtf(float current_time, int tid, int remaining_time)
 
 	pthread_mutex_lock(&m_sched);
 	if (!is_member(curr, tid)) {   /* if thread not on the queue */
-		t = node_alloc(tid, remaining_time, globtime, 0);  /* bogus priority */
+		t = node_alloc(tid, remaining_time, globtime, 0); 
 		enqueue(curr, t);
 		pthread_cond_wait(&(t->cond), &m_sched);
 	} else {
 		t = queue_find(curr, tid);
 		t->current_time = current_time;
-		t->tinfo->required_time = remaining_time; /* update remaining time for the calling thread */
+		/* update remaining time for the calling thread */
+		t->tinfo->required_time = remaining_time; 
 	}
 	pthread_mutex_unlock(&m_sched);
 
 	pthread_mutex_lock(&m_sched);
-	if (find_srt(curr)->tinfo->id == tid) {  /* if this thread is the one with the shortest remaining time */
+	/* if this thread is the one with the shortest remaining time */
+	if (find_srt(curr)->tinfo->id == tid) {  		
 		ret = globtime; 
 	} else {
 		signal_srt(curr);   /* signal thread with srt */ 
 		t = queue_find(curr, tid);
-		pthread_cond_wait(&(t->cond), &m_sched); /* wait until signaled */
+		/* wait until signaled */
+		pthread_cond_wait(&(t->cond), &m_sched); 
 		ret = globtime; 
 	}
 	pthread_mutex_unlock(&m_sched);
@@ -630,10 +638,10 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 
 	pthread_mutex_lock(&m_sched);
 	if (remaining_time == 0) {            /* thread finished with the CPU */
-		t = pqueue_remove(curr, tid); /* remove calling thread from the queue */
+		t = pqueue_remove(curr, tid); /* remove thread from queue */
 		node_dealloc(t);
 		ret = globtime;
-		if (!are_queues_empty()) {    /* signal thread with hp if there are threads still on some queue */
+		if (!are_queues_empty()) {    /* signal thread with hp */
 			signal_hp();
 		}
 	}
@@ -646,7 +654,8 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 	if (!is_member(curr, tid)) {  /* if this thread is not on its queue */
 		t = node_alloc(tid, remaining_time, 0, tprio); 
 		enqueue(curr, t);
-		pthread_cond_wait(&(t->cond), &m_sched); /* wait until next integral time */
+		/* wait until next integral time */
+		pthread_cond_wait(&(t->cond), &m_sched); 
 	} else {                      /* update this thread's running time */
 		t = queue_find(curr, tid);
 		t->current_time = current_time;
@@ -656,7 +665,7 @@ int schedule_pbs(float current_time, int tid, int remaining_time, int tprio)
 
 
 	pthread_mutex_lock(&m_sched);
-	if (find_hp()->tinfo->id == tid) {  /* this thread is the one to be scheduled */
+	if (find_hp()->tinfo->id == tid) {  /* this thread is to be scheduled */
 		ret = globtime;
 	} else { 
 		signal_hp();       /* signal the thread with highest priority */
@@ -714,16 +723,16 @@ int schedule_mlfq(float current_time, int tid, int remaining_time)
 
 	if (empty)
 		return ret;
-
-	if ((index = find_which_queue(tid)) != -1)  /* find ready queue with this thread */
+	/* find ready queue with this thread */
+	if ((index = find_which_queue(tid)) != -1) 
 		curr = ready[index];
 
 	pthread_mutex_lock(&m_sched);
 	if (remaining_time == 0) {
-		t = dequeue(curr);            /* remove calling thread from the queue */
+		t = dequeue(curr);            /* remove thread from queue */
 		node_dealloc(t);
 		ret = globtime;
-		if (!are_queues_empty()) {    /* signal thread with hp if there are threads still on some queue */
+		if (!are_queues_empty()) {    /* signal thread with hp */
 			signal_mlfq();
 		}
 	}
@@ -754,8 +763,9 @@ int schedule_mlfq(float current_time, int tid, int remaining_time)
 	 * if we are the last process to run, but some other process 
 	 * was introduced during our time quantum  
 	 */
-	if ((preempt = (last_tid == tid && counter >= 0 && ready[0]->head != NULL 
-					&& ready[0]->head->tinfo->id != tid))) {
+	if ((preempt = (last_tid == tid && counter >= 0 
+				&& ready[0]->head != NULL 
+				&& ready[0]->head->tinfo->id != tid))) {
 		t = queue_find(curr, tid);
 		signal_mlfq();
 		pthread_cond_wait(&(t->cond), &m_sched);
@@ -893,7 +903,9 @@ void init_scheduler(int sched_type)
 		counter = 0;
 		break;
 	default:
-		fprintf(stderr, "invalid scheduler type %d, defaulting to FCFS\n", sched_type);
+		fprintf(stderr, 
+			"invalid scheduler type %d, defaulting to FCFS\n", 
+			sched_type);
 		type = FCFS;
 		ready[0] = pqueue_allocate();
 		break;
