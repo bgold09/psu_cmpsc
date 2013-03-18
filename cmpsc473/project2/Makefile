@@ -5,15 +5,15 @@
 #
 # 1 April 2013
 
-PNAME=out
-OPT=-W -Wall -Wextra -Werror -std=c89 -ggdb
-SRC=
+PNAME=out$(NUM)
+OPT=-W -Wall -Wextra -std=c89 -ggdb
+SRC=tests/inputs/test$(NUM).c
 LIB = my_memory.c
 INC = $(LIB:.c=.h) 
 ALL = $(SRC) $(LIB) $(INC)
 
-${PNAME}: $(ALL) 
-	gcc $(OPT) -o $(PNAME) $(SRC)
+$(PNAME): $(ALL) 
+	gcc $(OPT) -o $(PNAME) $(LIB) $(SRC)
 
 clean:
-	rm -f ${PNAME} a.out *.o temp
+	rm -f $(PNAME)* a.out *.o temp test*_output.txt
