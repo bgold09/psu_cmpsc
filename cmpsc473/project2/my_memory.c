@@ -18,8 +18,8 @@ free_list_t *free_list[NUM_BUCKETS];  /* free_lists for allocation */
 
 void *my_malloc(int size)
 {
-	block_t *block;
-	void *ret;
+	block_t *block;  /* pointer to a free block */
+	void *ret;       /* pointer to newly allocated segment on the heap */
 
 	/* find block to use for allocation and remove it from the free list */
 	if ((block = find_and_remove_block(size + HEADER_SIZE)) == NULL) {
@@ -27,7 +27,7 @@ void *my_malloc(int size)
 	}
 	
 	ret = block->addr;
-	*((int *) ret) = size;
+	*((int *) ret) = size;  /* add size of new block to its header */
 
 	/* split the block, if necessary */
 	if (size + HEADER_SIZE == block->size) {
@@ -66,7 +66,7 @@ block_t *find_and_remove_block(int size)
 
 block_t *free_list_remove(free_list_t *list, block_t *block)
 {
-	block_t *p;
+	block_t *p;  /* pointer to free block to remove from list */
 
 	p = NULL;
 
@@ -100,8 +100,8 @@ block_t *free_list_remove(free_list_t *list, block_t *block)
 
 block_t *find_and_remove_block_ff(int size)
 {
-	free_list_t *list;
-	block_t *p;
+	free_list_t *list;  /* free list to remove from */
+	block_t *p;         /* block removed from list */
 
 	list = free_list[0];
 
@@ -124,8 +124,23 @@ block_t *find_and_remove_block_ff(int size)
 
 block_t *find_and_remove_block_bf(int size)
 {
-	(void) size;
-	return NULL;
+	free_list_t *list;  /* free list to remove from */
+	block_t *best;      /* best fit block for allocation */
+	block_t *p;         /* temp block */
+	int bestsize;       /* size of the current best fit block */
+
+	list = free_list[0];
+	bestsize = MAXRAMSIZE + 1;
+	best = NULL;
+
+	for (p = list->head; p != NULL; p = p->next) {
+		if (p->size >= size && p->size < bestsize) {
+			best = p;
+			bestsize = p->size;			
+		}
+	}
+
+	return best != NULL ? free_list_remove(list, best) : NULL;
 }
 
 block_t *find_and_remove_block_wf(int size)
@@ -224,7 +239,6 @@ free_list_t *free_list_allocate(void)
 	return p;
 }
 
-
 free_list_t *free_list_enqueue(block_t *block)
 {
 	free_list_t *list;
@@ -271,5 +285,4 @@ free_list_t *free_list_enqueue(block_t *block)
 	}
 
 	return list;
-
 }

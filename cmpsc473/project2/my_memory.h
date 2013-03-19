@@ -6,11 +6,12 @@
  *
  */
 
-#define FF          0  /* First Fit */
-#define BF          1  /* Best Fit */
-#define WF          2  /* Worst Fit */
-#define BS          3  /* Buddy System */
-#define HEADER_SIZE 4  /* size of size header for an allocated block */
+#define FF          0       /* First Fit */
+#define BF          1       /* Best Fit */
+#define WF          2       /* Worst Fit */
+#define BS          3       /* Buddy System */
+#define HEADER_SIZE 4       /* size of size header for an allocated block */
+#define MAXRAMSIZE  1048576 /* max starting RAM size */
 
 /**
  * struct _free_block - information about a free segment of heap memory
