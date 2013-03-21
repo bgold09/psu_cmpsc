@@ -145,8 +145,23 @@ block_t *find_and_remove_block_bf(int size)
 
 block_t *find_and_remove_block_wf(int size)
 {
-	(void) size;
-	return NULL;
+	free_list_t *list;  /* free list to remove from */
+	block_t *worst;     /* worst fit block for allocation */
+	block_t *p;         /* temp block */
+	int worstsize;      /* size of the current worst fit block */
+
+	list = free_list[0];
+	worstsize = -1;
+	worst = NULL;
+
+	for (p = list->head; p != NULL; p = p->next) {
+		if (p->size >= size && p->size > worstsize) {
+			worst = p;
+			worstsize = p->size;			
+		}
+	}
+
+	return worst != NULL ? free_list_remove(list, worst) : NULL;
 }
 
 block_t *find_and_remove_block_bs(int size)
@@ -249,20 +264,26 @@ free_list_t *free_list_enqueue(block_t *block)
 	if (type != BS) {
 		list = free_list[0];
 
-		if (list->head == NULL) {
+		if (list->head == NULL) {    /* empty list */
 			block->next = NULL;
 			block->prev = NULL;
 			list->head = block;
 			list->tail = block;
 			return list;
-		}
-
-		if (list->head->addr > block->addr) {
+		} else if (list->head->addr > block->addr) {  
+			/* insert before head */
 			p = list->head;
 			list->head = block;
 			list->head->next = p;
 			list->head->prev = NULL;
 			p->prev = list->head;
+			return list;
+		} else if (list->head == list->tail) {  
+			/* single element list, insert at tail */
+			list->head->next = block;
+			list->tail = block;
+			block->prev = list->head;
+			block->next = NULL;
 			return list;
 		}
 

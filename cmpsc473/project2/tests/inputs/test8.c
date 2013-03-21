@@ -12,7 +12,7 @@ int main()
     int size;
     int RAM_SIZE=1<<20;/*1024*1024*/
     void* RAM=malloc(RAM_SIZE);/*1024*1024*/
-	setup(1,RAM_SIZE,RAM);/*Worst Fit, Memory size=1024*1024, Start of memory=RAM*/
+	setup(2,RAM_SIZE,RAM);/*Worst Fit, Memory size=1024*1024, Start of memory=RAM*/
 /*test 8*/
     size=20*1024;
 	void* a=my_malloc(size);/*We have 4 bytes header to save the size of that chunk in memory so the output starts at 4*/
