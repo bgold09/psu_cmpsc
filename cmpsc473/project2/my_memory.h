@@ -164,3 +164,11 @@ free_list_t *free_list_allocate(void);
  * @return pointer to free list the block was added to
  */
 free_list_t *free_list_enqueue(block_t *block);
+
+/*
+ * get_bucket_index - find index in the list of free lists to insert a block
+ *
+ * @param size: size of the free block to add to a free list
+ * @return index of list on success, -1 failure
+ */
+int get_bucket_index(int size);

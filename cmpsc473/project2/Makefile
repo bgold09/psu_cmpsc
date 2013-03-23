@@ -6,7 +6,7 @@
 # 1 April 2013
 
 PNAME=out$(NUM)
-OPT=-W -Wall -Wextra -std=c89 -ggdb
+OPT=-W -Wall -Wextra -lm -std=c89 -ggdb
 SRC=tests/inputs/test$(NUM).c
 LIB = my_memory.c
 INC = $(LIB:.c=.h) 

@@ -7,14 +7,15 @@
  *
  */
 
+#define _XOPEN_SOURCE 600
 #include <stdio.h>
 #include <stdlib.h>     /* malloc(), free() */
+#include <math.h>       /* log2() */
 #include "my_memory.h"
 
-#define NUM_BUCKETS 11  /* number of block buckets needed for Buddy System */
-
-static int type;                      /* memory allocation scheme to use */
-free_list_t *free_list[NUM_BUCKETS];  /* free_lists for allocation */
+static int type;          /* memory allocation scheme to use */
+static int num_buckets;   /* number of block buckets needed for Buddy System */
+free_list_t **free_list;  /* free_lists for allocation */
 
 void *my_malloc(int size)
 {
@@ -208,16 +209,22 @@ void setup(int malloc_type, int mem_size, void *start_of_memory)
 	int i;
 
 	type = malloc_type;
+	num_buckets = (int) log2f((float) mem_size);
 
 	if (malloc_type != BS) {
+		free_list = (free_list_t **) malloc(sizeof(*free_list) * num_buckets);
 		free_list[0] = free_list_allocate();
 		free_list[0]->head = block_allocate(start_of_memory, mem_size);
 		free_list[0]->tail = free_list[0]->head;
 	} else {
-		for (i = 0; i < NUM_BUCKETS; i++) {
+		free_list = (free_list_t **) malloc(sizeof(*free_list) * num_buckets);
+		for (i = 0; i < num_buckets; i++) {
 			free_list[i] = free_list_allocate();
-			/* determine where to put the initial free segment */
 		}
+		free_list[num_buckets - 1]->head = 
+			block_allocate(start_of_memory, mem_size);
+		free_list[num_buckets - 1]->tail = 
+			free_list[num_buckets - 1]->head;
 	}
 }
 
@@ -306,4 +313,9 @@ free_list_t *free_list_enqueue(block_t *block)
 	}
 
 	return list;
+}
+
+int get_bucket_index(int size)
+{
+	return (int) log2f((float) size);
 }
