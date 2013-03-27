@@ -11,9 +11,10 @@ SRC=tests/inputs/test$(NUM).c
 LIB = my_memory.c
 INC = $(LIB:.c=.h) 
 ALL = $(SRC) $(LIB) $(INC)
+NUM=1
 
 $(PNAME): $(ALL) 
 	gcc $(OPT) -o $(PNAME) $(LIB) $(SRC)
 
 clean:
-	rm -f $(PNAME)* a.out *.o temp test*_output.txt
+	rm -f out* a.out *.o temp test*_output.txt

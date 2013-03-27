@@ -12,6 +12,7 @@
 #define BS          3       /* Buddy System */
 #define HEADER_SIZE 4       /* size of size header for an allocated block */
 #define MAXRAMSIZE  1048576 /* max starting RAM size */
+#define MIN_REQUEST 1024    /* size of the smallest request */
 
 /**
  * struct _free_block - information about a free segment of heap memory
@@ -164,6 +165,14 @@ free_list_t *free_list_allocate(void);
  * @return pointer to free list the block was added to
  */
 free_list_t *free_list_enqueue(block_t *block);
+
+/**
+ * free_list_is_empty - check if free list is empty, assume list is non-null
+ *
+ * @param list: list to check if empty
+ * @return 0 list is not empty, 1 list is empty
+ */
+int free_list_is_empty(free_list_t *list);
 
 /*
  * get_bucket_index - find index in the list of free lists to insert a block

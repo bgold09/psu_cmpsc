@@ -36,6 +36,8 @@ function make_and_check()
 	if [ -z "$RES" ]
 	then
 		echo -e "\toutputs for test${1} match"
+	else
+		echo -e "\toutputs for test${1} do not match"
 	fi
 }
 
