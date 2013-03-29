@@ -1,0 +1,38 @@
+- use "hw9.sml";
+[opening hw9.sml]
+val abc = fn : int * 'a list -> 'a list
+val def = fn : (int * int) list -> int list
+val ghi = fn : 'a list * 'b list -> ('a * 'b) list
+val semi = fn : int -> real
+hw9.sml:28.20 Warning: calling polyEqual
+val remove = fn : ''a * ''a list -> ''a list * int
+val coprime = fn : int * int -> bool
+val binaryRepresentation = fn : int -> int list
+val it = () : unit
+- semi 10;
+val it = 0.645634920635 : real
+- semi 100;
+val it = 0.68817217931 : real
+- semi 1000;
+val it = 0.69264743056 : real
+- remove(0, [4,1,0,3,0,2,1,0]);
+val it = ([4,1,3,2,1],3) : int list * int
+- remove("x", ["x", "a", "b", "x", "x"]);
+val it = (["a","b"],3) : string list * int
+- coprime(27,50);
+val it = true : bool
+- coprime(30,50);
+val it = false : bool
+- coprime(128,125);
+val it = true : bool
+- coprime(70,147);
+val it = false : bool
+- binaryRepresentation 13;
+val it = [1,1,0,1] : int list
+- binaryRepresentation 1024;
+val it = [1,0,0,0,0,0,0,0,0,0,0] : int list
+- binaryRepresentation 1023;
+val it = [1,1,1,1,1,1,1,1,1,1] : int list
+- binaryRepresentation 79;
+val it = [1,0,0,1,1,1,1] : int list
+- 
