@@ -34,20 +34,29 @@ fun remove (x, nil) = (nil, 0)
        else (y::newList, count)
      end;
 
-
 (* 4. coprime : (int * int) -> bool
       determine if two arguments have no common divisors besides 1, 
       which is equivalen to saying that their greatest common divisor (GCD)
       is equal to 1. Compute the GCD using Euclid's algorithm. 
 *)
 fun coprime (x, y) = 
-      let fun gcd (a, 0) = a 
-             |gcd(a, b) = gcd(b, a mod b)
-      in gcd(x, y) = 1
-      end;
+  let fun gcd (a, 0) = a 
+         |gcd (a, b) = gcd(b, a mod b)
+  in gcd(x, y) = 1
+  end;
 
 (* 5. binaryRepresentation : int -> (int list)
       takes a non-negative integer and returns its binary representation 
 *)
-
-
+fun binaryRepresentation n = 
+  let 
+    local 
+      fun rev(nil, ys) = ys | rev(x::xs, ys) = rev(xs, x::ys)
+    in
+      fun treverse xs = rev(xs, nil)
+    end;
+    fun build 0 = 0::nil
+       |build 1 = 1::nil
+       |build m = (m mod 2) :: build(m div 2)
+  in treverse (build n)
+  end;
