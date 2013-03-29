@@ -17,14 +17,22 @@ fun ghi (nil, ys) = nil
 
 (* 2. semi : int -> real, computes 1/1 - 1/2 + 1/3 - 1/4 + ... + 1/n *)
 fun semi 1 = 1.0
-   |semi n = if n mod 2 = 0 then ~1.0 / real(n) + semi(n-1)
-             else 1.0 / real(n) + semi(n-1);
+   |semi n = if n mod 2 = 0 
+             then ~1.0 / real(n) + semi(n-1)
+             else  1.0 / real(n) + semi(n-1);
 
 (* 3. remove : ('a * 'a list) -> ('a list * int) 
       removes all occurrences of a given value from a list and returns the 
       resulting list and number of occurrences removed 
 *) 
-
+fun remove (x, nil) = (nil, 0)
+   |remove (x, y::ys) = 
+     let val (newList, count) = remove(x, ys)
+     in 
+       if x = y 
+       then (newList, count+1)
+       else (y::newList, count)
+     end;
 
 
 (* 4. coprime : (int * int) -> bool
@@ -32,7 +40,6 @@ fun semi 1 = 1.0
       which is equivalen to saying that their greatest common divisor (GCD)
       is equal to 1. Compute the GCD using Euclid's algorithm. 
 *)
-
 fun coprime (x, y) = 
       let fun gcd (a, 0) = a 
              |gcd(a, b) = gcd(b, a mod b)
