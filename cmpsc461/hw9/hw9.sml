@@ -6,7 +6,7 @@
  (* 1. fix the type erros in the following three functions  *)
 fun abc (0, x::xs) = xs
    |abc (k, x::xs) = abc(k-1, xs)
-   |abc (k, nil) = ~1::nil;
+   |abc (k, nil) = nil;
 
 fun def nil = 0::nil
    |def ((x, y)::xs) = (x + y) :: def(xs);
