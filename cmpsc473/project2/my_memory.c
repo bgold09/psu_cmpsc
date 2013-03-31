@@ -17,10 +17,6 @@ static int type;          /* memory allocation scheme to use */
 static int num_buckets;   /* number of block orders needed for Buddy System */
 static void *base_addr;   /* starting address of `RAM' */
 free_list_t **free_list;  /* free_lists for allocation */
-static int arch;          /*
-			   * architecture of this machine (32 or 64-bit), 
-			   * needed for finding buddies
-			   */
 
 void *my_malloc(int size)
 {
@@ -46,7 +42,7 @@ void *my_malloc(int size)
 			block->size -= size + HEADER_SIZE;
 			block->addr += size + HEADER_SIZE;
 			/* readd the block to the correct free_list */
-			free_list_enqueue(block);
+			free_list_insert(block);
 		}
 	}
 
@@ -144,6 +140,10 @@ block_t *find_and_remove_block_bf(int size)
 	bestsize = MAXRAMSIZE + 1;
 	best = NULL;
 
+	/* 
+	 * find the best fit block, i.e. the smallest available free block
+	 * that is large enough to satify the request
+	 */
 	for (p = list->head; p != NULL; p = p->next) {
 		if (p->size >= size && p->size < bestsize) {
 			best = p;
@@ -165,6 +165,10 @@ block_t *find_and_remove_block_wf(int size)
 	worstsize = -1;
 	worst = NULL;
 
+	/* 
+	 * find the worst fit block, i.e. the largest available free block
+	 * that is also large enough to satify the request
+	 */
 	for (p = list->head; p != NULL; p = p->next) {
 		if (p->size >= size && p->size > worstsize) {
 			worst = p;
@@ -195,10 +199,10 @@ block_t *find_and_remove_block_bs(int size)
 			for (; i > index; i--) {  /* split blocks as necessary */
 				old = free_list_remove(free_list[i], free_list[i]->head);
 				old->size >>= 1;    /* divide by 2 */
-				free_list_enqueue(old);
+				free_list_insert(old);
 				/* allocate new free block adjacent to old */
 				new = block_allocate(old->addr + old->size, old->size); 
-				free_list_enqueue(new);
+				free_list_insert(new);
 			}
 		}
 	}
@@ -208,27 +212,30 @@ block_t *find_and_remove_block_bs(int size)
 
 void my_free(void *ptr)
 {
-	int size;
-	block_t *block;
-	free_list_t *list;
+	int size;           /* size of the memory block to free */
+	block_t *block;     /* new free block to add to a free list */
+	free_list_t *list;  /* free list to add new block to */
+
+	if (ptr == NULL)  /* no operation is performed when calling free(NULL) */
+		return;
 
 	size = *((int *) (ptr - HEADER_SIZE));
 	if (type != BS)
 		block = block_allocate(ptr - HEADER_SIZE, size + HEADER_SIZE);
 	else
 		block = block_allocate(ptr - HEADER_SIZE, size);
-	list = free_list_enqueue(block);   /* add to correct free_list */
+	list = free_list_insert(block);   /* add to correct free_list */
 	coalesce(list, block);
 }
 
 void coalesce(free_list_t *list, block_t *ptr)
 {
-	void *buddy;
-	block_t *left;
-	block_t *right;
-	block_t *new;
-	int buddy_num;
-	int done;
+	void *buddy;     /* address of the most recently freed block's buddy */
+	block_t *left;   /* block to the right of ptr in its free list */
+	block_t *right;  /* block to the right of ptr in its free list */
+	block_t *new;    /* iterator for coalescing in Buddy System */
+	int buddy_num;   /* number of the buddy */
+	int done;        /* true when coalescing is finished */
 	int i;
 
 	if (type != BS) {
@@ -261,7 +268,7 @@ void coalesce(free_list_t *list, block_t *ptr)
 					right->addr = left->addr; 
 					block_deallocate(left);
 					right->size <<= 1;  /* multiply by 2 */
-					free_list_enqueue(right);
+					free_list_insert(right);
 					new = right;
 				} else {
 					done = 1;
@@ -275,7 +282,7 @@ void coalesce(free_list_t *list, block_t *ptr)
 					right = free_list_remove(free_list[i], new);
 					block_deallocate(right);
 					left->size <<= 1;  /* multiply by 2 */
-					free_list_enqueue(left);
+					free_list_insert(left);
 					new = left;
 				} else {
 					done = 1;
@@ -294,7 +301,6 @@ void setup(int malloc_type, int mem_size, void *start_of_memory)
 	type = malloc_type;
 	base_addr = start_of_memory;
 	num_buckets = (int) log2f((float) (mem_size / MIN_REQUEST)) + 1;
-	arch = (size_t) - 1 > 0xffffffffUL;  /* determine the architecture */
 
 	if (malloc_type != BS) {
 		free_list = (free_list_t **) malloc(sizeof(*free_list) * num_buckets);
@@ -303,9 +309,12 @@ void setup(int malloc_type, int mem_size, void *start_of_memory)
 		free_list[0]->tail = free_list[0]->head;
 	} else {
 		free_list = (free_list_t **) malloc(sizeof(*free_list) * num_buckets);
-		for (i = 0; i < num_buckets; i++) {
+		/* create all buckets needed */
+		for (i = 0; i < num_buckets; i++) {  
 			free_list[i] = free_list_allocate();
 		}
+
+		/* place initial block in the last bucket */
 		free_list[num_buckets - 1]->head = 
 			block_allocate(start_of_memory, mem_size);
 		free_list[num_buckets - 1]->tail = 
@@ -337,7 +346,7 @@ void block_deallocate(block_t *p)
 
 free_list_t *free_list_allocate(void)
 {
-	free_list_t *p;
+	free_list_t *p;  /* pointer to newly allocated free list */
 
 	if ((p = (free_list_t *) malloc(sizeof(*p))) == NULL) {
 		fprintf(stderr, "malloc failed, free_list_allocate()\n");
@@ -346,10 +355,10 @@ free_list_t *free_list_allocate(void)
 	return p;
 }
 
-free_list_t *free_list_enqueue(block_t *block)
+free_list_t *free_list_insert(block_t *block)
 {
-	free_list_t *list;
-	block_t *p;
+	free_list_t *list;  /* free list to add block to */
+	block_t *p;         /* temp block pointer */
 
 	if (type != BS)
 		list = free_list[0];
@@ -379,10 +388,12 @@ free_list_t *free_list_enqueue(block_t *block)
 		return list;
 	}
 
+	/* find place in list to insert */
 	for (p = list->head->next; 
 	     p->addr < block->addr && p->next != NULL; p = p->next);
 
-	if (p->addr >= block->addr && p->next == NULL) {   /* not enqueuing at the tail */
+	/* not enqueuing at the tail */
+	if (p->addr >= block->addr && p->next == NULL) {   
 		p->prev->next = block;
 		block->prev = p->prev;
 		block->next = p;
@@ -392,7 +403,7 @@ free_list_t *free_list_enqueue(block_t *block)
 		block->prev = p->prev;
 		block->next = p;
 		p->prev = block;
-	} else {                /* inserting after p, new tail */
+	} else {                       /* inserting after p, new tail */
 		p->next = block;
 		block->prev = p;
 		block->next = NULL;

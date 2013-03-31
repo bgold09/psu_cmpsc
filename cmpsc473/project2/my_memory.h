@@ -55,7 +55,8 @@ void *my_malloc(int size);
 void my_free(void *ptr);
 
 /**
- * setup - specify where memory starts, size of memory, and allocation scheme  to use
+ * setup - specify where memory starts, size of memory, 
+ *         and allocation scheme  to use
  *
  * @param malloc_type: indicator of which memory allocation type to use
  * @param mem_size: total memory space available in the system (initially 1 MB)
@@ -159,12 +160,12 @@ void coalesce(free_list_t *list, block_t *ptr);
 free_list_t *free_list_allocate(void);
 
 /**
- * free_list_enqueue - enqueue a new block to a free list
+ * free_list_insert - insert a new block to a free list
  *
- * @param block: new block to enqueue on the list
+ * @param block: new block to insert on the list
  * @return pointer to free list the block was added to
  */
-free_list_t *free_list_enqueue(block_t *block);
+free_list_t *free_list_insert(block_t *block);
 
 /**
  * free_list_is_empty - check if free list is empty, assume list is non-null
