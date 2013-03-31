@@ -198,7 +198,6 @@ block_t *find_and_remove_block_bs(int size)
 				free_list_enqueue(old);
 				/* allocate new free block adjacent to old */
 				new = block_allocate(old->addr + old->size, old->size); 
-				/* new = block_allocate((void *) ((unsigned long) old->addr ^ (unsigned long) old->size), old->size); */
 				free_list_enqueue(new);
 			}
 		}
@@ -251,36 +250,38 @@ void coalesce(free_list_t *list, block_t *ptr)
 		i = (int) ceilf(log2f((float) (ptr->size) / MIN_REQUEST));
 		new = ptr;
 		while(!done) {  /* while still coalescing to do */
-			/* do we need to conditionally cast based on the architecture / how it was compiled */
 			buddy_num = (new->addr - base_addr) / new->size;
 
 			if (buddy_num % 2 == 0) {  /* even buddy number */
 				buddy = new->addr + new->size;
+				/* buddy is to the right */
+				if (new->next != NULL && new->next->addr == buddy) {
+					right = free_list_remove(free_list[i], new->next);
+					left = free_list_remove(free_list[i], new);
+					right->addr = left->addr; 
+					block_deallocate(left);
+					right->size <<= 1;  /* multiply by 2 */
+					free_list_enqueue(right);
+					new = right;
+				} else {
+					done = 1;
+				}
 			} else {                   /* odd buddy number */
 				buddy = new->addr - new->size;
+				/* buddy is to the left  */
+				if (new->prev != NULL && new->prev->addr == buddy) {
+					/* buddy is to the left */
+					left = free_list_remove(free_list[i], new->prev);
+					right = free_list_remove(free_list[i], new);
+					block_deallocate(right);
+					left->size <<= 1;  /* multiply by 2 */
+					free_list_enqueue(left);
+					new = left;
+				} else {
+					done = 1;
+				}
 			}
-
-			/* buddy = (void *) ((unsigned long) new->addr ^ (unsigned long) new->size); */
 			
-			if (new->prev != NULL && new->prev->addr == buddy) {
-				/* buddy is to the left */
-				left = free_list_remove(free_list[i], new->prev);
-				right = free_list_remove(free_list[i], new);
-				block_deallocate(right);
-				left->size <<= 1;  /* multiply by 2 */
-				free_list_enqueue(left);
-				new = left;
-			} else if (new->next != NULL && new->next->addr == buddy) {
-				right = free_list_remove(free_list[i], new->next);
-				left = free_list_remove(free_list[i], new);
-				right->addr = left->addr; 
-				block_deallocate(left);
-				right->size <<= 1;  /* multiply by 2 */
-				free_list_enqueue(right);
-				new = right;
-			} else {
-				done = 1;
-			}
 			i++;
 		}
 	}

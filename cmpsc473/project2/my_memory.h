@@ -55,7 +55,7 @@ void *my_malloc(int size);
 void my_free(void *ptr);
 
 /**
- * setup - 
+ * setup - specify where memory starts, size of memory, and allocation scheme  to use
  *
  * @param malloc_type: indicator of which memory allocation type to use
  * @param mem_size: total memory space available in the system (initially 1 MB)
