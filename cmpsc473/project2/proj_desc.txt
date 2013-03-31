@@ -1,0 +1,12 @@
+Mike Fitz, Brian Golden
+Section 2
+
+We used a double-linked list implementation to maintain the list of free blocks. Making the list doubly-linked instead of singly-linked allowed for much easier coalescing of free blocks, as we can check a block's neighbors in the free list just by using its previous and next pointers.
+
+As the 4 strategies are very similar at a high level, these strategies largely use the same code. The only code that needed to be specific to each strategy was the code to find a free block to satisfy an allocation request. This can be seen in our project through the find_and_remove_block_x() family of functions, where x is the allocation strategy (ff = First Fit, bf = Best Fit, wf = Worst Fit, bs = Buddy System).
+
+As the Buddy System strategy requires a slightly different data structure (in our implementation, this was an array of linked lists, where each linked list maintains free blocks of a specific power of 2 between 1 KB and 1 MB), there was a bit more code specific to Buddy System, such as the code needed to coalesce blocks after a deallocation. This was simply a special case in our coalesce() function, which merges free blocks when appropriate.
+
+Our project assumes that the memory specified by the arguments to the setup() function has been successfully allocated. We also assume that a free request will not be made on a previously deallocated block of memory. If my_free() is passed NULL, the function simply returns with no action being performed.
+
+Both members of our team worked together for all parts of the project. There was no aspect of the project implemented by only one member of our team. This was done so that each member could fully understand the code, facilitating debugging and gaining knowledge on the project material.
