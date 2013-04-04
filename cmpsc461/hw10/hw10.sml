@@ -25,12 +25,8 @@ fun firstN (n, void) = nil
    |firstN (0, str) = nil
    |firstN (n, element(x, str)) = x :: firstN(n-1, str());
 
-(*fun listToStream nil = void
-   |listToStream (x::xs) = element(x, listToStream(xs));*)
-
-fun cons(x, str) = element(x, fn()=>str);
-
-fun listToStream xs = List.foldr cons void xs;
+fun listToStream nil = void
+   |listToStream (x::xs) = element(x, fn()=>listToStream(xs));
 
 (* 3. filter - filter a list based on a predicate *)
 
