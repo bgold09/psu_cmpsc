@@ -31,3 +31,32 @@ fun firstN (n, void) = nil
 fun cons(x, str) = element(x, fn()=>str);
 
 fun listToStream xs = List.foldr cons void xs;
+
+
+(* 4. ternary tree *)
+datatype 'a ternaryTree = empty 
+         | node of ('a ternaryTree * 'a * 'a ternaryTree * 'a * 'a ternaryTree);
+
+fun exOp NONE = 0
+   |exOp (SOME(x)) = x;
+
+(* 
+ * ordered - a tree is ordered if left, center and right are ordererd, all
+ * integers in left are less than or equal to x, all integers in center are
+ * greater than or equal to x and less than or equal to y, and all integers to
+ * in right are less than or equal to y 
+ *)
+fun ordered empty = true
+   |ordered (node(left, x, center, y, right)) = 
+    let 
+      fun inrange(p, empty) = true
+         |inrange(p, node(left, x, center, y, right)) = 
+            p(x) andalso p(y) andalso 
+            inrange(fn(n)=> exOp(Int.minInt) <= n andalso n <= x, left) andalso
+            inrange(fn(n)=> x <= n andalso n <= y, center) andalso
+            inrange(fn(n)=> y <= n andalso n <= exOp(Int.maxInt), right)
+    in 
+      inrange(fn(n)=> exOp(Int.minInt) <= n andalso n <= x, left) andalso
+      inrange(fn(n)=> x <= n andalso n <= y, center) andalso
+      inrange(fn(n)=> y <= n andalso n <= exOp(Int.maxInt), right)
+    end;
