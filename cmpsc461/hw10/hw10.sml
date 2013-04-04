@@ -32,6 +32,14 @@ fun cons(x, str) = element(x, fn()=>str);
 
 fun listToStream xs = List.foldr cons void xs;
 
+(* 3. filter - filter a list based on a predicate *)
+
+fun filterCPS(nil, p, K) = K nil
+   |filterCPS(x::xs, p, K) =  
+      filterCPS(xs, p, fn rest=> K(if p(x) then x::rest else rest));
+
+fun filter (nil, p) = nil
+   |filter (ys, p) = filterCPS(ys, p, fn m=>m);
 
 (* 4. ternary tree *)
 datatype 'a ternaryTree = empty 
