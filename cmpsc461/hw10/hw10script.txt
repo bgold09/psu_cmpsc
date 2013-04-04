@@ -1,0 +1,49 @@
+- use "hw10.sml";
+[opening hw10.sml]
+val merge = fn : ('a * 'a -> bool) -> 'a list * 'a list -> 'a list
+datatype 'a stream = element of 'a * (unit -> 'a stream) | void
+val infiniteFrom = fn : int -> int stream
+val firstN = fn : int * 'a stream -> 'a list
+val listToStream = fn : 'a list -> 'a stream
+val filterCPS = fn : 'a list * ('a -> bool) * ('a list -> 'b) -> 'b
+val filter = fn : 'a list * ('a -> bool) -> 'a list
+datatype 'a ternaryTree
+  = empty | node of 'a ternaryTree * 'a * 'a ternaryTree * 'a * 'a ternaryTree
+val ordered = fn : int ternaryTree -> bool
+val it = () : unit
+- use "hw10test.sml";
+[opening hw10test.sml]
+val mergeLess = fn : int list * int list -> int list
+val it = [1,2,4,6,9,10,20,40,60] : int list
+val naturals = element (0,fn) : int stream
+val it = [0,1,2,3,4,5,6,7,8,9] : int list
+val someStrings = element ("a",fn) : string stream
+val it = ["a","abc","cde","efgh"] : string list
+val it = [2,4,6,8,0] : int list
+val it = [2,4,6,8,0] : int list
+val t0 = node (empty,2,empty,5,empty) : int ternaryTree
+val t1 = node (empty,10,empty,12,empty) : int ternaryTree
+val t2 = node (empty,15,empty,17,empty) : int ternaryTree
+val t3 =
+  node
+    (node (empty,2,empty,5,empty),7,node (empty,10,empty,12,empty),14,
+     node (empty,15,empty,17,empty)) : int ternaryTree
+val t4 = node (empty,20,empty,25,empty) : int ternaryTree
+val t5 = node (empty,29,empty,31,empty) : int ternaryTree
+val t6 =
+  node
+    (node (node #,7,node #,14,node #),19,node (empty,20,empty,25,empty),27,
+     node (empty,29,empty,31,empty)) : int ternaryTree
+val t7 =
+  node
+    (node (node #,7,node #,14,node #),21,node (empty,20,empty,25,empty),27,
+     node (empty,29,empty,31,empty)) : int ternaryTree
+val t8 =
+  node
+    (node (node #,7,node #,14,node #),21,node (empty,20,empty,25,empty),30,
+     node (empty,29,empty,31,empty)) : int ternaryTree
+val it = true : bool
+val it = false : bool
+val it = false : bool
+val it = () : unit
+- 
