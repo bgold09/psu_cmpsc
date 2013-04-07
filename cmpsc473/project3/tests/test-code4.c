@@ -7,14 +7,14 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-//#define PAGE_SIZE 4096
+/*#define PAGE_SIZE 4096 */
 void mm_log(FILE *);
 
 int main ()
 {
 	int* vm_ptr;
 	int PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
-	//printf("%d\n", PAGE_SIZE);
+	/*printf("%d\n", PAGE_SIZE); */
 	int vm_size = 16*PAGE_SIZE;
 	int temp;
 	FILE* f1 = fopen("results.txt", "w");
@@ -31,29 +31,29 @@ int main ()
 
 	/* virtual memory access starts */
 	
-	temp = vm_ptr[8];                                      // Read virtual page 1
+	temp = vm_ptr[8];                                      /* Read virtual page 1 */
         mm_log(f1);
-        temp = vm_ptr[8 + ((int)((PAGE_SIZE)/sizeof(int)))];  // Read virtual page 2
+        temp = vm_ptr[8 + ((int)((PAGE_SIZE)/sizeof(int)))];  /* Read virtual page 2 */
         mm_log(f1);
-        vm_ptr[16] = 12;                                        // Write virtual page 1
+        vm_ptr[16] = 12;                                        /* Write virtual page 1 */
         mm_log(f1);
-        temp = vm_ptr[8 + ((int)((2*PAGE_SIZE)/sizeof(int)))];  // Read virtual page 3
+        temp = vm_ptr[8 + ((int)((2*PAGE_SIZE)/sizeof(int)))];  /* Read virtual page 3 */
         mm_log(f1);
-        temp = vm_ptr[8 + ((int)((3*PAGE_SIZE)/sizeof(int)))];  // Read virtual page 4
+        temp = vm_ptr[8 + ((int)((3*PAGE_SIZE)/sizeof(int)))];  /* Read virtual page 4 */
         mm_log(f1);
-        temp = vm_ptr[7];                                       // Read virtual page 1
+        temp = vm_ptr[7];                                       /* Read virtual page 1 */
         mm_log(f1);
-        temp = vm_ptr[8 + ((int)((4*PAGE_SIZE)/sizeof(int)))];  // Read virtual page 5
+        temp = vm_ptr[8 + ((int)((4*PAGE_SIZE)/sizeof(int)))];  /* Read virtual page 5 */
         mm_log(f1);
-        vm_ptr[32] = 64;                                        // Write virtual page 1
+        vm_ptr[32] = 64;                                        /* Write virtual page 1 */
         mm_log(f1);
-        vm_ptr[16 + ((int)((PAGE_SIZE)/sizeof(int)))] = 49; //  Write virtual page 2
+        vm_ptr[16 + ((int)((PAGE_SIZE)/sizeof(int)))] = 49; /*  Write virtual page 2 */
         mm_log(f1);
-        vm_ptr[16 + ((int)((2*PAGE_SIZE)/sizeof(int)))] = 49; //  Write virtual page 3
+        vm_ptr[16 + ((int)((2*PAGE_SIZE)/sizeof(int)))] = 49; /*  Write virtual page 3 */
         mm_log(f1);
-        vm_ptr[16 + ((int)((3*PAGE_SIZE)/sizeof(int)))] = 49; //  Write virtual page 4
+        vm_ptr[16 + ((int)((3*PAGE_SIZE)/sizeof(int)))] = 49; /*  Write virtual page 4 */
         mm_log(f1);
-        vm_ptr[16 + ((int)((4*PAGE_SIZE)/sizeof(int)))] = 49; //  Write virtual page 5
+        vm_ptr[16 + ((int)((4*PAGE_SIZE)/sizeof(int)))] = 49; /*  Write virtual page 5 */
         mm_log(f1);
 	/* virtual memory access ends */
 
