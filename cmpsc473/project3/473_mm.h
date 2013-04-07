@@ -1,24 +1,33 @@
 #ifndef _473_MM_H
 #define _473_MM_H
 
-/*
-'mm_init()' initializes the memory management system. 
-'vm' denotes the pointer to the start of virtual address space, 
-'vm_size' denotes the size of the virtual address space, 
-'n_frames' denotes the number of physical pages available in the system, 
-'page_size' denotes the size of both virtual and physical pages, 
-'policy' can take values 1 or 2 -- 1 indicates fifo replacement policy and 2 indicates clock replacement policy. 
-*/
+/**
+ * 'mm_init()' initializes the memory management system. 
+ * 
+ * @param vm: denotes the pointer to the start of virtual address space
+ * @param vm_size: denotes the size of the virtual address space
+ * @param n_frames: denotes the number of physical pages available in the system
+ * @param page_size: denotes the size of both virtual and physical pages
+ * @param policy: 1 indicates fifo replacement policy, 
+ *                2 indicates clock replacement policy
+ * @return void
+ */
 void mm_init(void* vm, int vm_size, int n_frames, int page_size, int policy); 
 
-/*
-'mm_report_npage_faults' should return the total number of page faults of the entire system (across all virtual pages). 
-*/
+/**
+ * mm_report_npage_faults -  return the total number of page faults of 
+ *                           the entire system (across all virtual pages)
+ *
+ * @return total number of page faults
+ */
 unsigned long mm_report_npage_faults(); 
 
-/*
-'mm_report_nwrite_backs' should return the total number of write backs of the entire system (across all virtual pages). 
-*/
+/**
+ * mm_report_nwrite_backs - return the total number of write backs of 
+ *                          the entire system (across all virtual pages)
+ *
+ * @return total number of write backs
+ */
 unsigned long mm_report_nwrite_backs();
 
 #endif
