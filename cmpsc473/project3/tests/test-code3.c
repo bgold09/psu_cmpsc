@@ -1,4 +1,4 @@
-#include "473_mm.h"
+#include "../473_mm.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-/*#define PAGE_SIZE 4096
+/*#define PAGE_SIZE 4096 */
 void mm_log(FILE *);
 
 int main ()
