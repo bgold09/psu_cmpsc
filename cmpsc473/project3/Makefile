@@ -17,4 +17,4 @@ $(PNAME): $(ALL)
 	gcc $(OPT) -o $(PNAME) $(LIB) $(SRC)
 
 clean:
-	rm -f out* a.out *.o temp
+	rm -f out* a.out *.o temp results.txt

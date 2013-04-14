@@ -12,6 +12,7 @@
 struct _entry_t {
 	int frame;
 	int flags;
+	int index;
 	struct _entry_t *next;
 };
 typedef struct _entry_t entry_t;
@@ -31,6 +32,8 @@ int table_size;
 int offset_bits;
 int max_frames;
 int cur_frames;
+int page_size;
+void *vm_start;
 
 /**
  * 'mm_init()' initializes the memory management system. 
@@ -43,7 +46,7 @@ int cur_frames;
  *                2 indicates clock replacement policy
  * @return void
  */
-void mm_init(void* vm, int vm_size, int n_frames, int page_size, int policy); 
+void mm_init(void* vm, int vm_size, int n_frames, int pagesize, int policy); 
 
 /**
  * mm_report_npage_faults - return the total number of page faults of 
@@ -72,6 +75,33 @@ int install_signal_handler(int sig, sighandler_t func);
  */
 void SIGSEGV_handler(int sig, siginfo_t *si, void *unused);
 
+/**
+ *
+ */
 entry_t *entry_allocate(int frame);
+
+/**
+ *
+ */
+int get_table_index(void *addr);
+
+/**
+ *
+ */
+void *get_page_base(int pagenum);
+
+void history_add(entry_t *t);
+void history_add_fifo(entry_t *t);
+void history_add_clock(entry_t *t);
+
+
+/**
+ *
+ */
+void evict_page(void);
+
+void evict_page_fifo(void);
+
+void evict_page_clock(void);
 
 #endif

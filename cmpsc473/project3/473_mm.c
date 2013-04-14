@@ -9,20 +9,22 @@
 #include <sys/mman.h>  /*  */
 #include "473_mm.h"
 
-static entry_t **page_table;    /*   */
-static list_pages *page_hist;  /*  */
+static entry_t **page_table;   /*   */
+static list_pages *page_hist;  /*   */
 
-void mm_init(void* vm, int vm_size, int n_frames, int page_size, int policy)
+void mm_init(void* vm, int vm_size, int n_frames, int pagesize, int policy)
 {
 	int i;
 
 	type = policy;
 	faults = 0;
 	write_backs = 0;
-	table_size = vm_size / page_size;
-	offset_bits = 64 - (int) log2f((int) table_size);
+	table_size = vm_size / pagesize;
+	offset_bits = (int) log2f((int) table_size);
 	max_frames = n_frames;
 	cur_frames = 0;
+	page_size = pagesize;
+	vm_start = vm;
 
 	if (install_signal_handler(SIGSEGV, SIGSEGV_handler) == -1) {
 		fprintf(stderr, "install_signal_handler() failed: %s\n", 
@@ -36,6 +38,7 @@ void mm_init(void* vm, int vm_size, int n_frames, int page_size, int policy)
 	} else {
 		for (i = 0; i < table_size; i++) {
 			page_table[i] = entry_allocate(i);
+			page_table[i]->index = i;
 		}
 
 		page_hist->head = NULL;
@@ -45,12 +48,12 @@ void mm_init(void* vm, int vm_size, int n_frames, int page_size, int policy)
 
 unsigned long mm_report_npage_faults(void)
 {
-	return 0;
+	return faults;
 }
 
 unsigned long mm_report_nwrite_backs(void)
 {
-	return 0;
+	return write_backs;
 }
 
 int install_signal_handler(int sig, sighandler_t func)
@@ -76,8 +79,10 @@ int install_signal_handler(int sig, sighandler_t func)
 
 void SIGSEGV_handler(int sig, siginfo_t *si, void *unused)
 {
-	(void) unused;
-	(void) si;
+	int pagenum;
+	void *virt_page;
+
+	(void) unused;	
 
 	if (sig == SIGSEGV) {
 		/* printf("got SIGSEV at address 0x%lx\n", (long) si->si_addr); */
@@ -92,11 +97,34 @@ void SIGSEGV_handler(int sig, siginfo_t *si, void *unused)
 		 *	set read-write permissions
 		 */
 
+		pagenum = get_table_index(si->si_addr);
+		virt_page = get_page_base(pagenum);
+
+		if (!(page_table[pagenum]->flags & PB)) {  /* page not present */
+
+			history_add(page_table[pagenum]);
+
+			if (cur_frames == max_frames) {  /* page table is full */
+				/* evict according to page replacement */
+				evict_page();
+			} else {
+				cur_frames++;
+			}
+			faults++;
+			page_table[pagenum]->flags = PB | RB;
+
+			if (mprotect(virt_page, page_size, PROT_READ) == -1) {
+				fprintf(stderr, "mprotect failed: %s\n", strerror(errno));
+			}
+		} else {
+			page_table[pagenum]->flags = PB | RB | MB;
+			if (mprotect(virt_page, page_size, PROT_READ | PROT_WRITE) == -1) {
+				fprintf(stderr, "mprotect failed: %s\n", strerror(errno));
+			}
+		}
 	} else {
 		fprintf(stderr, "serious error, unknown signal received\n");
 	}
-
-	exit(EXIT_FAILURE);
 }
 
 entry_t *entry_allocate(int frame)
@@ -109,6 +137,87 @@ entry_t *entry_allocate(int frame)
 
 	p->frame = frame;
 	p->flags = 0;
+	p->next = NULL;
+	p->index = -1;
 
 	return p;
+}
+
+int get_table_index(void *addr) 
+{
+	return (int) ((addr - vm_start) / (page_size));
+}
+
+void *get_page_base(int pagenum)
+{
+	return vm_start + pagenum * page_size;
+}
+
+void history_add(entry_t *t)
+{
+	if (type == FIFO) {
+		history_add_fifo(t);
+	} else if (type == CLOCK) {
+		history_add_clock(t);
+	} else {
+		fprintf(stderr, "unrecognized page replacement type %d\n", type);
+	}
+}
+
+void history_add_fifo(entry_t *t)
+{
+	if (page_hist->head == NULL) {
+		page_hist->head = t;
+		page_hist->tail = t;
+	} else {
+		page_hist->tail->next = t;
+		page_hist->tail = t;
+	}
+	return;
+}
+
+void history_add_clock(entry_t *t)
+{
+	(void) t;
+	return;
+}
+
+void evict_page(void)
+{
+	if (type == FIFO) {
+		evict_page_fifo();
+	} else if (type == CLOCK) {
+		evict_page_clock();
+	} else {
+		fprintf(stderr, "unrecognized page replacement type %d\n", type);
+	}
+}
+
+void evict_page_fifo(void)
+{
+	entry_t *head;
+	int pagenum;
+	void *virt_page;
+
+	head = page_hist->head;
+	pagenum = head->index;
+
+	if (head->flags & MB)  /* modify bit is set */
+		write_backs++;
+	
+	head->flags = 0;
+	page_hist->head = page_hist->head->next;
+	head->next = NULL;
+
+	virt_page = get_page_base(pagenum);
+	if (mprotect(virt_page, page_size, PROT_NONE) == -1) {
+		fprintf(stderr, "mprotect failed: %s\n", strerror(errno));
+	}
+
+	return;
+}
+
+void evict_page_clock(void)
+{
+	return;
 }
