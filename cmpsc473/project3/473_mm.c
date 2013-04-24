@@ -1,16 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>    /* free() */
-#include <unistd.h>    /*  */
 #include <string.h>    /* strerror() */
 #include <signal.h>    /* sigaction(), sigemptyset() */
-#include <malloc.h>    /*  */
+#include <malloc.h>    /* malloc() */
 #include <math.h>      /* log2f() */
 #include <errno.h>
-#include <sys/mman.h>  /*  */
+#include <sys/mman.h>  /* mprotect() */
 #include "473_mm.h"
 
-static entry_t **page_table;   /*   */
-static list_pages *page_hist;  /*   */
+static entry_t **page_table;   /* table of virtual pages */
+static list_pages *page_hist;  /* page history for replacement, 
+				* circular for clock replacement */
+static entry_t *clock_hand;    /* hand pointer for clock replacement */
 
 void mm_init(void* vm, int vm_size, int n_frames, int pagesize, int policy)
 {
@@ -43,6 +44,10 @@ void mm_init(void* vm, int vm_size, int n_frames, int pagesize, int policy)
 
 		page_hist->head = NULL;
 		page_hist->tail = NULL;
+	}
+
+	if (policy == CLOCK) {
+		clock_hand = NULL;
 	}
 }
 
@@ -91,14 +96,13 @@ void SIGSEGV_handler(int sig, siginfo_t *si, void *unused)
 		virt_page = get_page_base(pagenum);
 
 		if (!(page_table[pagenum]->flags & PB)) { /* page not present */
-			history_add(page_table[pagenum]);
-
 			if (cur_frames == max_frames) { /* page table is full */
 				/* evict according to page replacement */
 				evict_page();
 			} else {
 				cur_frames++;
 			}
+			history_add(page_table[pagenum]);
 			faults++;
 			page_table[pagenum]->flags = PB | RB;
 
@@ -168,13 +172,20 @@ void history_add_fifo(entry_t *t)
 		page_hist->tail->next = t;
 		page_hist->tail = t;
 	}
-	return;
 }
 
 void history_add_clock(entry_t *t)
 {
-	(void) t;
-	return;
+	if (page_hist->head == NULL) {  /* empty page history */
+		page_hist->head = t;
+		page_hist->tail = t;
+		clock_hand = page_hist->head;
+	} else {
+		page_hist->tail->next = t;
+		page_hist->tail = t;
+	}
+
+	page_hist->tail->next = page_hist->head;
 }
 
 void evict_page(void)
@@ -210,11 +221,50 @@ void evict_page_fifo(void)
 	if (mprotect(virt_page, page_size, PROT_NONE) == -1) {
 		fprintf(stderr, "mprotect failed: %s\n", strerror(errno));
 	}
-
-	return;
 }
 
 void evict_page_clock(void)
 {
-	return;
+	int pagenum;      /* page number of the virtual page to evict */
+	void *virt_page;  /* address of the virtual page to evict */
+	entry_t *p;       /* pointer to entry before the clock hand */
+
+	/* haven't found a page without its reference bit set */
+	while ((clock_hand->flags & RB) != 0) {  
+		clock_hand->flags ^= RB;
+		pagenum = clock_hand->index;
+		virt_page = get_page_base(pagenum);
+		if (mprotect(virt_page, page_size, PROT_NONE) == -1) {
+			fprintf(stderr, "mprotect failed: %s\n", strerror(errno));
+		}
+		clock_hand = clock_hand->next;
+	}
+
+	pagenum = clock_hand->index;
+
+	if (clock_hand->flags & MB)  /* modify bit is set */
+		write_backs++;
+	
+	clock_hand->flags = 0;
+
+	/* find the entry before the clock hand */
+	for (p = page_hist->head; p->next != clock_hand; p = p->next);
+
+	/* remove page from the history */
+	p->next = clock_hand->next;
+
+	if (clock_hand == page_hist->head)  /* hand is pointing to the head */
+		page_hist->head = page_hist->head->next;
+
+	if (clock_hand == page_hist->tail)  /* hand is pointing to the tail */
+		page_hist->tail = p;
+
+	clock_hand->next = NULL;
+	clock_hand = p->next;
+	virt_page = get_page_base(pagenum);
+
+	/* unset permissions on the page */
+	if (mprotect(virt_page, page_size, PROT_NONE) == -1) {
+		fprintf(stderr, "mprotect failed: %s\n", strerror(errno));
+	}
 }
