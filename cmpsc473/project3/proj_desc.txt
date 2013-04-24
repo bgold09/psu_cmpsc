@@ -1,0 +1,9 @@
+All team members contributed to all parts of the project. No part of the project was implemented by a single team member. This was to ease the pains ot debugging and so that team members would be equally knowledgable as to how the program functions.
+
+Our project maintains page history as a linked list of table entries. Each virtual page has its own table entry, with entries containing the base address of the virtual page, the entry's page table index (used when evicting/bringing a page into physical memory), and finally a bit field containing flags for a reference bit, modify bit, and present bit.
+
+The page history is maintainted as a simple singly-linked list in the case of FIFO replacement, as we only need to evict the page at the head of the history. In the case of Clock replacement, the list is still singly-linked, but circular. A "clock hand" pointer into the page history is used to facilitate page eviction.
+
+We tried to keep our code as general as possible -- the only code dependent on the page replacement algorithm chosen is the code for evicting a page (evict_page_[fifo|clock]), and adding a page to the history (add_history_[fifo|clock]). Write-backs are recorded when a page is evicted by checking the modified bit of the newly evicted page, and page faults are recorded in our SIGSEGV handler.
+
+Our code assumes that "physical memory" can hold at least 2 frames, as our circularly-linked list is not robust in this case for Clock replacement.
