@@ -36,10 +36,10 @@ rnway([X|Xs], S) :- hasOrder(X, S), rnway(Xs, S).
  */
 perfectPermutation(N, L) :-
 	N>0, upto(N, Xs), permutation(Xs, L), 
-	reverse(Xs, Ys), test(N, Ys, L).
+	reverse(Xs, Ys), test(Ys, L).
 
-test(_, [], _).
-test(N, [X|Xs], [Y|Ys]) :- not(X=Y), M is N-1, test(M, Xs, Ys).
+test([], _).
+test([X|Xs], [Y|Ys]) :- not(X=Y), test(Xs, Ys).
 
 upto(0,[]).
 upto(N,[N|Xs]) :- N>0, M is N-1, upto(M,Xs).
