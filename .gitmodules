@@ -1,0 +1,9 @@
+[submodule "cmpsc475/psu_directory"]
+	path = cmpsc475/psu_directory
+	url = https://github.com/bgold09/cmpsc475_psu_directory.git
+[submodule "cmpsc475/pentominoes"]
+	path = cmpsc475/pentominoes
+	url = https://github.com/bgold09/cmpsc475_pentominoes.git
+[submodule "cmpsc475/math_game"]
+	path = cmpsc475/math_game
+	url = https://github.com/bgold09/cmpsc475_hw1.git
