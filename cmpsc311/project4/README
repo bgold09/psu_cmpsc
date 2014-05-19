@@ -1,0 +1,25 @@
+CMPSC 311, Spring 2012, Project 4
+
+Author:   Brian Golden
+Email:    bwg5079@psu.edu
+
+
+This project represents a program "hake" that mimics part of the functionality of the UNIX system tool "make."
+
+'hake' accepts three option, '-h', '-v' and '-f'
+  # '-h' prints usage information for hake
+  # '-v' turns on certain messages that tell the user about various program functionality
+    ## the user can supply up to three '-v' options to turn on more messages
+  # 'f' accepts a single argument that specifies a hakefile
+    ## multiple '-f' option can be supplied
+    ## supplying "-" as the argument is interpreted as "read from stdin"
+
+When at least one verbose mode flag is supplied, hake will print out each line of the makefiles being read
+  and an analysis of each.
+A line can be diagnosed as a comment, macro, target-prerequisite line, recipe, include or empty line.
+When an include statement is reached, hake will try to analyize the contents of the file
+  if it can open it or the file has not already been read.
+
+I thought that the ability to read from stdin was actually a pretty interesting piece of functionality.
+  This could be useful if the user wanted to quickly make a Makefile on-the-fly if it is something
+  that they would use only once.  

@@ -1,0 +1,13 @@
+# comment 1
+
+macro = body
+
+target1 : source1 source2
+	recipe 1
+	recipe 2
+	recipe 3
+
+include testfile-1
+
+# comment 2
+

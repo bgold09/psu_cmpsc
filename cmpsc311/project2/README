@@ -1,0 +1,20 @@
+CMPSC 311, Spring 2012, Project 2
+
+Author:   Brian Golden
+Email:    bwg5079@psu.edu
+
+final verison: 30 Jan. 2012
+
+note: This program uses the header <stdbool.h>, so it must be compiled
+      using c99 or later
+
+The function of this program is to take a file into the stdin and 
+print information about the characters in that file. Such information 
+includes what types of characters are present (alphanumerics, controls,
+blanks, hexadecimal digits). It also counts the occurrences of different 
+escape sequences ('\r' and '\n' in this case) to determine the file type. 
+
+The program also accounts for several oddities in the program, as well
+as for a few possible errors. It would have been better if I had some
+way to check for those errors to make sure that the error handling
+was properly implemented on my part.

@@ -1,0 +1,16 @@
+The program works. pr8 mimics the behavior of the make program with the '-n' option enabled. 
+
+Total Time spent on the project: approximately 10 hrs. 
+The project was mostly straightforward and easy to complete. 
+
+Known Bugs:
+  # There is a discovered issue with the way the program deals with macro expansion. 
+    We feel this is a bug in the code provided to us, and as such, did not attempt to fix it 
+	(as it was outside the scope of this project, having been told that we are to build this program 
+	under the assumption that the macro expansion was successful).
+	
+  # There was a discovered issue with the code provided to us, related to trying to read empty files as makefiles. Attempting to run an empty makefile would cause a Segmentation Fault. This bug, although present in the code provided, was fixed in pr8. pr8 provides an error message and quits gracefully. 
+
+From here it would be trivial to create a rudimentary make program. Now that we can determine when 
+it is appropriate to execute a recipe, all we would need to do is provide a call to an exec function 
+with the recipe we are given.

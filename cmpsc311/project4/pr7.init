@@ -1,0 +1,3 @@
+echo greetings from pr7.init
+hostname
+echo -------

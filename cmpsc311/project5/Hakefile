@@ -1,0 +1,14 @@
+# comment 1
+
+macro-1 = body-1
+macro-2 = body-2
+macro-3 = ${macro-1} ${macro-2}
+
+target1 : source1 source2
+	recipe 1 $(macro-1}
+	recipe 2 $(macro-2}
+	recipe 3 $(macro-3}
+
+include testfile-1
+
+# comment 2

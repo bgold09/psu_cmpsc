@@ -1,0 +1,29 @@
+CMPSC 311, Spring 2012, Project 3
+
+Author:   Brian Golden
+Email:    bwg5079@psu.edu
+
+Say something about the project.
+
+The function of this project is to perform functionality similar to
+the first phase of the C compiler. The project actually consists of
+four different programs:
+
+1) pass1 -- whitespace and end-of-line markers
+    # whitespace characters form feed, vertical tab and horizontal tab 
+        are each replaced with a single space character
+    # the two-character sequence return-newline is replaced by a single newline character
+    # the return character is replaced by a single newline character
+2) pass2 -- trigraph replacement
+    # trigraph characters are replaced with their ASCII equivalent
+    # reference: <http://en.wikipedia.org/wiki/Digraphs_and_trigraphs>
+3) pass3 -- source line continuation
+    # a line ending with backslash is joined with the following line
+    # There are two potential warning messages:
+        "warning: backslash at end of file"
+        "warning: backslash-newline at end of file"
+4) pass4 -- comment removal
+   # single-line comments (start with //) are replace with a single space and newline
+   # multi-line comments (/*  */) are replaced with a single space if they are one line,
+       or newline characters for every line long it is
+   # character constants and string literals are printed as-is

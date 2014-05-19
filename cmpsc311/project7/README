@@ -1,0 +1,50 @@
+CMPSC 311, Spring 2012, Project 7
+
+Author:   Aaron Goodermuth, Brian Golden
+Email:    ajg5353@psu.edu , bwg5079@psu.edu
+
+final version, 10 April 2012
+
+This program works. Where the specifications are not clear, we do our best to emulate the behavior of UNIX and the TENEX C Shell. 
+We spent about 20 hours working on this project, including the time spent on extra credit. There are no known bugs. 
+The process table updates will only be printed in debug mode, not in verbose mode. 
+
+EXTRA CREDIT:
+	toggle verbose and debug options
+	toggle exec function: execve, execvp, execlp
+	limits: max number child processes, max length input line, etc
+	runtime selection of execlp(), execvp(), execve()
+	Pass the environment variables explicitly by replacing execvp(2) with execve(2).
+	comments, with #
+	command sequences with ;
+	
+	
+A simple interactive Unix command shell works as follows:
+	shell:  read a command line
+		the first word of the command line is taken to be the name of a file containing the program to be run
+		the command line input could come from the standard input or from a file
+
+There are also a number of special commands that should be done by the shell itself
+
+Usage:  pr7 [-h] [-v] [-i] [-e] [-s f] [file]
+  -h     help
+  -v     verbose mode
+  -i     interactive mode
+  -e     echo commands before execution
+  -s f   use startup file f, default pr7.init
+Shell commands:
+  help
+  exit
+  echo
+  dir
+  cdir [directory]
+  penv
+  penv variable_name
+  senv variable_name value
+  unsenv variable_name
+  pjobs
+  limits
+  set debug    [on|off]
+  set exec     [lp|vp|ve]
+  set verbose  [on|off]
+  

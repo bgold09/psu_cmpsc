@@ -1,0 +1,7 @@
+echo greetings from pr7.init
+who am i       # a comment test
+hostname
+echo -------------------------------------------------- 
+echo
+# another comment
+

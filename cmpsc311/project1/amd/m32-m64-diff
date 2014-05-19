@@ -1,0 +1,82 @@
+12c12
+< long int                           4   4
+---
+> long int                           8   8
+16c16
+< unsigned long int                  4   4
+---
+> unsigned long int                  8   8
+22c22
+< long double                       12   4
+---
+> long double                       16  16
+26c26
+< long double complex               24   4
+---
+> long double complex               32  16
+29c29
+< void *                             4   4
+---
+> void *                             8   8
+53,54c53,54
+< int_fast16_t                       4   4
+< int_fast32_t                       4   4
+---
+> int_fast16_t                       8   8
+> int_fast32_t                       8   8
+57,58c57,58
+< uint_fast16_t                      4   4
+< uint_fast32_t                      4   4
+---
+> uint_fast16_t                      8   8
+> uint_fast32_t                      8   8
+62,63c62,63
+< intptr_t                           4   4
+< uintptr_t                          4   4
+---
+> intptr_t                           8   8
+> uintptr_t                          8   8
+70,71c70,71
+< ptrdiff_t                          4   4
+< size_t                             4   4
+---
+> ptrdiff_t                          8   8
+> size_t                             8   8
+75,76c75,76
+< clock_t                            4   4
+< time_t                             4   4
+---
+> clock_t                            8   8
+> time_t                             8   8
+87c87
+< long int                 -2147483648 2147483647
+---
+> long int                 -9223372036854775808 9223372036854775807
+91c91
+< unsigned long int        0 4294967295
+---
+> unsigned long int        0 18446744073709551615
+100c100
+< long int                 80000000 7fffffff
+---
+> long int                 8000000000000000 7fffffffffffffff
+104c104
+< unsigned long int        0 ffffffff
+---
+> unsigned long int        0 ffffffffffffffff
+120,122c120,122
+< struct { float a; double b; }     12   4
+< struct { double a; float b; }     12   4
+< struct { double a; double b; }    16   4
+---
+> struct { float a; double b; }     16   8
+> struct { double a; float b; }     16   8
+> struct { double a; double b; }    16   8
+133,135c133,135
+< union { float a; double b; }       8   4
+< union { double a; float b; }       8   4
+< union { double a; double b; }      8   4
+---
+> union { float a; double b; }       8   8
+> union { double a; float b; }       8   8
+> union { double a; double b; }      8   8

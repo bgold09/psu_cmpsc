@@ -1,0 +1,48 @@
+# CMPSC 311 Project 6 starter kit, makefile for use on Solaris
+#
+# to compile: 
+#   make VER=5
+# to check the code more thoroughly: 
+#   make VER=5 check 
+# a simple test case: 
+#   make VER=5 test 
+# to clean up the directory 
+#   make clean
+
+SRC = pr6.$(VER).c
+
+LIB = pr6_ctime.c pr6_signal.c pr6_wait.c pr6_table.c
+INC = $(LIB:.c=.h)
+
+ALL = $(SRC) $(LIB) $(INC)
+
+OPT = -D_POSIX_PTHREAD_SEMANTICS
+# -D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=600
+# -D_REENTRANT
+
+# These options are looking ahead to multi-threaded programs: 
+#   see intro(3), NOTES ON MULTITHREADED APPLICATIONS 
+#   see standards(5) for -D_POSIX_C_SOURCE  and _D_XOPEN_SOURCE
+#   see fork(2), ctime_r(3C) for -D_POSIX_PTHREAD_SEMANTICS 
+#   see intro(2) for -D_REENTRANT
+
+pr6: $(ALL)
+	c99 -v -D_POSIX_C_SOURCE=200112L -o pr6 $(OPT) $(SRC) $(LIB)
+
+check: $(ALL)
+	cc -v -o pr6 $(OPT) $(SRC) $(LIB)
+	gcc -Wall -Wextra -o pr6 $(OPT) $(SRC) $(LIB)
+	lint $(OPT) $(SRC) $(LIB)
+	rm pr6
+
+test: pr6 
+	pr6 -c 1 -a 3 -s 7 -x 128
+
+sigaction: 
+	cc -v -o pr6sigaction $(OPT) $(SRC) $(LIB)
+
+signal: 
+	cc -v -o pr6signal -DPR6_USE_SIGNAL $(OPT) $(SRC) $(LIB)
+
+clean: 
+	rm -f pr6 pr6sigaction pr6signal *.o
