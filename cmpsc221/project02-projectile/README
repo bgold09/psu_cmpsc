@@ -1,0 +1,21 @@
+How to Play
+
+    The object of the game is to hit all of the targets and miss as few times as possible.
+    Firing Projectiles
+        To fire a projectile, choose an angle and velocity
+        You may use either the text boxes or sliders provided to enter values
+        Then click "FIRE!" to launch the projectile with the given inputs
+        A random bird will be launched each time
+    The Birds
+        Orange birds are the largest of all birds. They are the easiest to hit a target with!
+        Yellow birds will bounce one time after hitting the ground. You might be able to hit a target even if you are short!
+        Red birds will head straight down after reaching their max height. Even if you overshoot you still might hit a target!
+        Blue birds behave normally, but they are the smallest and are the most difficult to hit with
+    Scoring
+        You gain 5 points for each target you hit
+        You lose 1 point for each time you miss
+    Click the reset button to revive the targets and start over with zero points
+
+Applet written by Brian Golden
+This applet is a target shooting game (loosely) based on the popular game Angry Birds,
+and as such I take no credit for any ideas that may resemble those in Angry Birds.
