@@ -1,0 +1,7 @@
+[2/7] write essay {english, comp}
+[11/5] write program {compsci, this feature works}
+(D) [1/18] finish program 
+(C) physics homework 
+(B) do quiz {math}
+(A) another task {comp, hist}
+(A) [4/29] perform sample runs for eportfolio {english}
